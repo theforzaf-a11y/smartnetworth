@@ -25,15 +25,10 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Menggunakan model Gemini 2.5 Flash yang aktif
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-      },
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON dengan struktur berikut:
+    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown atau backticks.
+    Format JSON:
     {
       "merchant": "nama toko",
       "date": "YYYY-MM-DD",
@@ -52,7 +47,9 @@ export async function POST(req: Request) {
     ]);
 
     const responseText = result.response.text();
-    return NextResponse.json(JSON.parse(responseText));
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+
+    return NextResponse.json(JSON.parse(cleanJson));
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Gagal memproses struk dengan AI', details: error.message },
