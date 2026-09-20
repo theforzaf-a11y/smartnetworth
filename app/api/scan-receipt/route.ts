@@ -24,8 +24,8 @@ export async function POST(req: Request) {
     const base64Data = Buffer.from(arrayBuffer).toString('base64');
     const mimeType = file.type || 'image/jpeg';
 
-    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown atau backticks.
-Format JSON yang diminta:
+    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown/backticks.
+Format JSON:
 {
   "merchant": "nama toko",
   "date": "YYYY-MM-DD",
@@ -33,9 +33,9 @@ Format JSON yang diminta:
   "items": [{"name": "nama barang", "price": angka_nominal}]
 }`;
 
-    // Memanggil API v1 langsung tanpa v1beta
+    // Menggunakan endpoint v1beta resmi Google Gemini API untuk model gemini-1.5-flash
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
@@ -63,7 +63,7 @@ Format JSON yang diminta:
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Pesan dari Google API', details: data.error?.message || data },
+        { error: 'Error dari Google Gemini API', details: data.error?.message || data },
         { status: response.status }
       );
     }
@@ -71,7 +71,12 @@ Format JSON yang diminta:
     const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const cleanJson = textResult.replace(/```json|```/g, '').replace(/```/g, '').trim();
 
-    return NextResponse.json(JSON.parse(cleanJson));
+    try {
+      const parsedData = JSON.parse(cleanJson);
+      return NextResponse.json(parsedData);
+    } catch (e) {
+      return NextResponse.json({ rawText: textResult });
+    }
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Gagal memproses struk dengan AI', details: error.message },
