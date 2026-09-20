@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY belum terdeteksi di Vercel' },
+        { error: 'GEMINI_API_KEY tidak ditemukan di Environment Variables Vercel.' },
         { status: 500 }
       );
     }
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     if (!file) {
       return NextResponse.json(
-        { error: 'File tidak ditemukan' },
+        { error: 'File tidak diunggah' },
         { status: 400 }
       );
     }
@@ -51,8 +51,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error: any) {
+    // Menampilkan detail error asli dari SDK Gemini ke layar
     return NextResponse.json(
-      { error: 'Gagal memproses struk dengan AI', details: error.message },
+      {
+        error: 'Gagal memproses struk dengan AI',
+        message: error?.message || 'Unknown error',
+        stack: error?.stack || null
+      },
       { status: 500 }
     );
   }
