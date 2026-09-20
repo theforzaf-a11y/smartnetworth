@@ -25,16 +25,17 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Menggunakan nama model aktif resmi dari Google
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown atau backticks.
-    Format JSON:
-    {
-      "merchant": "nama toko",
-      "date": "YYYY-MM-DD",
-      "total": angka_nominal,
-      "items": [{"name": "nama barang", "price": angka_nominal}]
-    }`;
+    const prompt = `Analisis foto struk/faktur ini dan kembalikan response dalam format JSON murni tanpa markdown/backticks.
+Format JSON yang diminta:
+{
+  "merchant": "nama toko",
+  "date": "YYYY-MM-DD",
+  "total": angka_nominal,
+  "items": [{"name": "nama barang", "price": angka_nominal}]
+}`;
 
     const result = await model.generateContent([
       prompt,
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
     ]);
 
     const responseText = result.response.text();
-    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const cleanJson = responseText.replace(/```json|```/g, '').replace(/```/g, '').trim();
 
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error: any) {
