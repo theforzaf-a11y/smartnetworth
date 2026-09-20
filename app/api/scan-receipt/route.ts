@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Menggunakan nama model gemini-1.5-flash sesuai rekomendasi error Google
+    // Model resmi untuk SDK 0.21.0
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `Analisis foto struk/faktur ini dan kembalikan response dalam format JSON murni tanpa markdown/backticks.
