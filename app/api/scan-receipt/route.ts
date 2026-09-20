@@ -6,7 +6,7 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'GEMINI_API_KEY tidak ditemukan di Environment Variables Vercel.' },
+        { error: 'GEMINI_API_KEY belum dipasang di Vercel' },
         { status: 500 }
       );
     }
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     if (!file) {
       return NextResponse.json(
-        { error: 'File tidak diunggah' },
+        { error: 'File tidak ditemukan' },
         { status: 400 }
       );
     }
@@ -25,8 +25,8 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Menggunakan nama model resmi Gemini yang aktif
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash-latest' });
+    // Menggunakan nama model standar Google Gemini
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `Analisis foto struk/faktur ini dan kembalikan response dalam format JSON murni tanpa markdown/backticks.
      Format JSON yang diminta:
@@ -53,10 +53,7 @@ export async function POST(req: Request) {
     return NextResponse.json(JSON.parse(cleanJson));
   } catch (error: any) {
     return NextResponse.json(
-      {
-        error: 'Gagal memproses struk dengan AI',
-        message: error?.message || 'Unknown error',
-      },
+      { error: 'Gagal memproses struk dengan AI', details: error.message },
       { status: 500 }
     );
   }
