@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
@@ -21,11 +22,13 @@ export async function POST(req: Request) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = file.type || 'image/jpeg';
+    const buffer = Buffer.from(arrayBuffer);
 
-    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown/backticks.
-Format JSON:
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const prompt = `Analisis foto struk/faktur ini dan kembalikan response dalam format JSON murni tanpa markdown/backticks.
+Format JSON yang diminta:
 {
   "merchant": "nama toko",
   "date": "YYYY-MM-DD",
@@ -33,66 +36,23 @@ Format JSON:
   "items": [{"name": "nama barang", "price": angka_nominal}]
 }`;
 
-    // Daftar model yang akan dicoba satu per satu sesuai kompatibilitas API Key
-    const candidateModels = [
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro-latest',
-      'gemini-1.0-pro-vision-latest',
-      'gemini-pro-vision'
-    ];
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: buffer.toString('base64'),
+          mimeType: file.type || 'image/jpeg',
+        },
+      },
+    ]);
 
-    let lastError = null;
-    let jsonResult = null;
+    const responseText = result.response.text();
+    const cleanJson = responseText.replace(/```json|```/g, '').replace(/```/g, '').trim();
 
-    for (const modelName of candidateModels) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: prompt },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data,
-                    },
-                  },
-                ],
-              },
-            ],
-          }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.candidates?.[0]?.content?.parts?.[0]?.text) {
-          const rawText = data.candidates[0].content.parts[0].text;
-          const cleanJson = rawText.replace(/```json|```/g, '').replace(/```/g, '').trim();
-          jsonResult = JSON.parse(cleanJson);
-          break; // Berhasil! Keluar dari loop
-        } else {
-          lastError = data.error?.message || JSON.stringify(data);
-        }
-      } catch (err: any) {
-        lastError = err.message;
-      }
-    }
-
-    if (jsonResult) {
-      return NextResponse.json(jsonResult);
-    } else {
-      return NextResponse.json(
-        { error: 'Gagal memproses dengan semua model Gemini', details: lastError },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json(JSON.parse(cleanJson));
   } catch (error: any) {
     return NextResponse.json(
-      { error: 'Gagal memproses struk', details: error.message },
+      { error: 'Gagal memproses struk dengan AI', details: error.message },
       { status: 500 }
     );
   }
