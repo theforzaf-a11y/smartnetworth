@@ -25,17 +25,21 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Menggunakan string model standar sesuai permintaan SDK
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Menggunakan model Gemini 2.5 Flash yang aktif
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.5-flash',
+      generationConfig: {
+        responseMimeType: 'application/json',
+      },
+    });
 
-    const prompt = `Analisis foto struk/faktur ini dan kembalikan response dalam format JSON murni tanpa markdown/backticks.
-Format JSON yang diminta:
-{
-  "merchant": "nama toko",
-  "date": "YYYY-MM-DD",
-  "total": angka_nominal,
-  "items": [{"name": "nama barang", "price": angka_nominal}]
-}`;
+    const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON dengan struktur berikut:
+    {
+      "merchant": "nama toko",
+      "date": "YYYY-MM-DD",
+      "total": angka_nominal,
+      "items": [{"name": "nama barang", "price": angka_nominal}]
+    }`;
 
     const result = await model.generateContent([
       prompt,
@@ -48,9 +52,7 @@ Format JSON yang diminta:
     ]);
 
     const responseText = result.response.text();
-    const cleanJson = responseText.replace(/```json|```/g, '').replace(/```/g, '').trim();
-
-    return NextResponse.json(JSON.parse(cleanJson));
+    return NextResponse.json(JSON.parse(responseText));
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Gagal memproses struk dengan AI', details: error.message },
