@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: Request) {
   try {
@@ -25,9 +24,38 @@ export async function POST(req: Request) {
     const base64Data = Buffer.from(arrayBuffer).toString('base64');
     const mimeType = file.type || 'image/jpeg';
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    // Menggunakan model standar gemini-1.5-flash
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // 1. Cek daftar model yang TERSEDIA untuk API Key ini secara real-time
+    const listModelsResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
+    const listModelsData = await listModelsResp.json();
+
+    if (!listModelsResp.ok) {
+      return NextResponse.json(
+        {
+          error: 'API Key ditolak oleh Google AI Studio. Pastikan API Key aktif dan tidak dibatasi.',
+          details: listModelsData.error?.message || listModelsData,
+        },
+        { status: listModelsResp.status }
+      );
+    }
+
+    const availableModels: string[] = (listModelsData.models || [])
+      .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
+      .map((m: any) => m.name.replace('models/', ''));
+
+    if (availableModels.length === 0) {
+      return NextResponse.json(
+        { error: 'API Key valid tetapi tidak memiliki akses ke model generateContent apapun.' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Pilih model vision/flash terbaik dari daftar model yang tersedia
+    const selectedModel =
+      availableModels.find((m) => m.includes('1.5-flash') || m.includes('flash')) ||
+      availableModels.find((m) => m.includes('pro') || m.includes('vision')) ||
+      availableModels[0];
 
     const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown/backticks.
 Format JSON:
@@ -38,30 +66,53 @@ Format JSON:
   "items": [{"name": "nama barang", "price": angka_nominal}]
 }`;
 
-    const imagePart = {
-      inlineData: {
-        data: base64Data,
-        mimeType: mimeType,
-      },
-    };
+    // 3. Eksekusi request menggunakan model yang dipastikan ADA untuk API Key ini
+    const generateResp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
 
-    const result = await model.generateContent([prompt, imagePart]);
-    const responseText = result.response.text();
+    const generateData = await generateResp.json();
 
-    const cleanJson = responseText
-      .replace(/```json|```/g, '')
-      .replace(/```/g, '')
-      .trim();
+    if (!generateResp.ok) {
+      return NextResponse.json(
+        {
+          error: `Gagal generate content dengan model ${selectedModel}`,
+          details: generateData.error?.message || generateData,
+        },
+        { status: generateResp.status }
+      );
+    }
+
+    const textResult = generateData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const cleanJson = textResult.replace(/```json|```/g, '').replace(/```/g, '').trim();
 
     try {
-      const parsedData = JSON.parse(cleanJson);
-      return NextResponse.json(parsedData);
-    } catch (e) {
-      return NextResponse.json({ rawText: responseText });
+      return NextResponse.json(JSON.parse(cleanJson));
+    } catch {
+      return NextResponse.json({ rawText: textResult });
     }
   } catch (error: any) {
     return NextResponse.json(
-      { error: 'Gagal memproses struk dengan AI', details: error.message },
+      { error: 'Gagal memproses request', details: error.message },
       { status: 500 }
     );
   }
