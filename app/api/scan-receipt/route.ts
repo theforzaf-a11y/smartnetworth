@@ -33,7 +33,7 @@ Format JSON:
   "items": [{"name": "nama barang", "price": angka_nominal}]
 }`;
 
-    // Memanggil model yang diminta Google untuk API Key terbarumu
+    // Menggunakan endpoint resmi model gemini-2.5-flash
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
