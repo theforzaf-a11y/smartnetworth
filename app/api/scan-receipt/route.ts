@@ -25,8 +25,8 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Menggunakan nama model aktif resmi dari Google
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Menggunakan nama model gemini-1.5-flash sesuai rekomendasi error Google
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `Analisis foto struk/faktur ini dan kembalikan response dalam format JSON murni tanpa markdown/backticks.
 Format JSON yang diminta:
