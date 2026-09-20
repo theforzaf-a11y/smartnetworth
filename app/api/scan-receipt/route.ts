@@ -33,41 +33,63 @@ Format JSON:
   "items": [{"name": "nama barang", "price": angka_nominal}]
 }`;
 
-    // Menggunakan endpoint v1beta resmi Google Gemini API untuk model gemini-1.5-flash
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data,
+    // Daftar nama model yang dicoba secara berurutan
+    const modelsToTry = [
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro-latest',
+      'gemini-2.0-flash-exp'
+    ];
+
+    let response: Response | null = null;
+    let lastErrorData: any = null;
+
+    for (const modelName of modelsToTry) {
+      // API Key dikirim lewat header x-goog-api-key agar mendukung format baru (AQ...)
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data,
+                    },
                   },
-                },
-              ],
-            },
-          ],
-        }),
+                ],
+              },
+            ],
+          }),
+        }
+      );
+
+      if (response.ok) {
+        break; // Berhasil terhubung ke model
+      } else {
+        lastErrorData = await response.json();
       }
-    );
+    }
 
-    const data = await response.json();
-
-    if (!response.ok) {
+    if (!response || !response.ok) {
       return NextResponse.json(
-        { error: 'Error dari Google Gemini API', details: data.error?.message || data },
-        { status: response.status }
+        {
+          error: 'Error dari Google Gemini API',
+          details: lastErrorData?.error?.message || lastErrorData,
+        },
+        { status: response ? response.status : 500 }
       );
     }
 
+    const data = await response.json();
     const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const cleanJson = textResult.replace(/```json|```/g, '').replace(/```/g, '').trim();
 
