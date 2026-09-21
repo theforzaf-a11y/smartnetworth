@@ -130,9 +130,9 @@ export function TabCatat({
     setOcrError("")
     setOcrSuccess("")
     // Reserve one scan from the device quota before calling the AI.
-    if (!consumeScan()) {
+    if (!consumeVoice()) {
       setOcrError(
-        `Masa uji coba Scan AI telah habis (0/${maxScanQuota}). Hubungi Admin SmartNetWorth untuk upgrade akses.`,
+        `Masa uji coba Catat Suara telah habis (0/${maxVoiceQuota}). Hubungi Admin SmartNetWorth untuk upgrade akses.`,
       )
       return
     }
