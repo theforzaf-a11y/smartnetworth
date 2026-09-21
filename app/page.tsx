@@ -116,16 +116,18 @@ function AppShell() {
       }
 
       const result = await response.json()
+      const amount = result.total ?? result.amount
+      const merchant = result.merchant ?? result.description
 
-      if (result.amount && result.amount > 0) {
+      if (amount && amount > 0) {
         finance.addTransaction({
           type: "expense",
-          amount: result.amount,
+          amount: amount,
           category: result.category || "Lainnya",
-          description: result.description ? `[Scan OCR] ${result.description}` : "Scan OCR Transaksi dari Faktur",
+          description: merchant ? `[Scan OCR] ${merchant}` : "Scan OCR Transaksi dari Faktur",
           entity: entityFilter === "semua" ? "pribadi" : entityFilter,
           date: result.date || new Date().toISOString().split("T")[0],
-          } as any)
+        } as any)
         setScanStatus("Berhasil mencatat faktur!")
       } else {
         alert("Gagal mengenali jumlah nominal dari faktur.")
