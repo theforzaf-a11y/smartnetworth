@@ -62,8 +62,9 @@ export function TabCatat({
   prefillDebtId,
   defaultEntity = "pribadi",
 }: TabCatatProps) {
-  const { scanQuota, maxScanQuota, consumeScan } = useAccess()
+  const { scanQuota, maxScanQuota, consumeScan, voiceQuota, maxVoiceQuota, consumeVoice } = useAccess()
   const quotaExhausted = scanQuota <= 0
+  const voiceQuotaExhausted = voiceQuota <= 0
   const [sub, setSub] = useState<SubTab>(prefillDebtId ? "debt" : "expense")
   const [title, setTitle] = useState("")
   const [amount, setAmount] = useState("")
@@ -82,6 +83,7 @@ export function TabCatat({
   const [isListening, setIsListening] = useState(false)
   const [voiceProcessing, setVoiceProcessing] = useState(false)
   const [voiceTranscript, setVoiceTranscript] = useState("")
+  const [voiceConfirmPending, setVoiceConfirmPending] = useState(false)
   const recognitionRef = useRef<any>(null)
   const transcriptRef = useRef("")
 
@@ -119,6 +121,8 @@ export function TabCatat({
     }
     resetForm()
     setSaved(true)
+    setVoiceConfirmPending(false)
+    setOcrSuccess("")
     setTimeout(() => setSaved(false), 2000)
   }
 
@@ -166,11 +170,12 @@ export function TabCatat({
     setOcrError("")
     setOcrSuccess("")
     setVoiceTranscript("")
+    setVoiceConfirmPending(false)
     transcriptRef.current = ""
 
-    if (!consumeScan()) {
+    if (!consumeVoice()) {
       setOcrError(
-        `Masa uji coba Scan AI telah habis (0/${maxScanQuota}). Hubungi Admin SmartNetWorth untuk upgrade akses.`,
+        `Masa uji coba Catat Suara telah habis (0/${maxVoiceQuota}). Hubungi Admin SmartNetWorth untuk upgrade akses.`,
       )
       return
     }
@@ -224,6 +229,7 @@ export function TabCatat({
         setCategory(EXPENSE_CATEGORIES.includes(result.category as never) ? result.category : "Lainnya")
         setDate(result.date)
         setOcrSuccess(`Suara terbaca: "${finalText}" → ${result.title}`)
+        setVoiceConfirmPending(true)
       } catch (err) {
         setOcrError(err instanceof Error ? err.message : "Gagal memproses ucapan")
       } finally {
@@ -330,12 +336,25 @@ export function TabCatat({
         </div>
 
         <div className="mt-3">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium text-muted-foreground">Catat via Suara (Premium)</span>
+            <span
+              className={
+                "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset " +
+                (voiceQuotaExhausted
+                  ? "bg-destructive/10 text-destructive ring-destructive/20"
+                  : "bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-400 dark:ring-violet-500/20")
+              }
+            >
+              {voiceQuota}/{maxVoiceQuota}
+            </span>
+          </div>
           <Button
             type="button"
             variant="outline"
             size="lg"
             className="h-auto w-full flex-row items-center justify-center gap-2 py-3"
-            disabled={uploadLoading || cameraLoading || voiceProcessing || quotaExhausted}
+            disabled={uploadLoading || cameraLoading || voiceProcessing || voiceQuotaExhausted}
             onClick={isListening ? stopVoiceInput : startVoiceInput}
           >
             {isListening ? (
@@ -372,6 +391,37 @@ export function TabCatat({
             <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" />
             {ocrSuccess}
           </p>
+        ) : null}
+
+        {voiceConfirmPending ? (
+          <div className="mt-3 flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400"
+              onClick={() => setVoiceConfirmPending(false)}
+            >
+              <CheckCircle2 className="size-4" />
+              Ya, Sudah Benar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400"
+              onClick={() => {
+                setTitle("")
+                setAmount("")
+                setCategory(EXPENSE_CATEGORIES[0])
+                setDate(new Date().toISOString().slice(0, 10))
+                setVoiceConfirmPending(false)
+                setOcrSuccess("")
+                startVoiceInput()
+              }}
+            >
+              <Mic className="size-4" />
+              Ulangi Rekam
+            </Button>
+          </div>
         ) : null}
       </Card>
 
