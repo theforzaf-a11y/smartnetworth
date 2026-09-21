@@ -112,6 +112,7 @@ export const STORAGE_KEYS = {
   unlocked: "snw_unlocked",
   passcode: "snw_passcode",
   scanQuota: "snw_scan_quota",
+  voiceQuota: "snw_voice_quota",
 } as const
 
 /** Access control defaults. */
@@ -120,6 +121,8 @@ export const DEFAULT_PASSCODE = "SMART2026"
 export const MASTER_ADMIN_PASSWORD = "ADMIN-SMART2026"
 /** Maximum number of free AI receipt scans allowed per device. */
 export const MAX_SCAN_QUOTA = 5
+/** Maximum number of free AI voice-input transactions allowed per device (premium feature). */
+export const MAX_VOICE_QUOTA = 3
 
 export const DEFAULT_SALDO_AWAL = 0
 
