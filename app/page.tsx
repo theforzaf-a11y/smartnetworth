@@ -125,8 +125,7 @@ function AppShell() {
           description: result.description ? `[Scan OCR] ${result.description}` : "Scan OCR Transaksi dari Faktur",
           entity: entityFilter === "semua" ? "pribadi" : entityFilter,
           date: result.date || new Date().toISOString().split("T")[0],
-          } as any
-        })
+          } as any)
         setScanStatus("Berhasil mencatat faktur!")
       } else {
         alert("Gagal mengenali jumlah nominal dari faktur.")
