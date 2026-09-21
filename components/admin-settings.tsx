@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, ShieldCheck, KeyRound, Gauge, CheckCircle2 } from "lucide-react"
+import { X, ShieldCheck, KeyRound, Gauge, Mic, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAccess } from "@/lib/access-context"
 
@@ -13,8 +13,18 @@ const inputClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
 
 export function AdminSettings({ onClose }: AdminSettingsProps) {
-  const { verifyMaster, setPasscode, scanQuota, maxScanQuota, setScanQuota, resetScanQuota } =
-    useAccess()
+  const {
+    verifyMaster,
+    setPasscode,
+    scanQuota,
+    maxScanQuota,
+    setScanQuota,
+    resetScanQuota,
+    voiceQuota,
+    maxVoiceQuota,
+    setVoiceQuota,
+    resetVoiceQuota,
+  } = useAccess()
 
   const [authed, setAuthed] = useState(false)
   const [master, setMaster] = useState("")
@@ -22,14 +32,17 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
 
   const [newPass, setNewPass] = useState("")
   const [quotaInput, setQuotaInput] = useState(String(scanQuota))
+  const [voiceQuotaInput, setVoiceQuotaInput] = useState(String(voiceQuota))
   const [savedMsg, setSavedMsg] = useState("")
 
-  // Keep the quota field in sync when the underlying quota changes.
   useEffect(() => {
     setQuotaInput(String(scanQuota))
   }, [scanQuota])
 
-  // Close on Escape.
+  useEffect(() => {
+    setVoiceQuotaInput(String(voiceQuota))
+  }, [voiceQuota])
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose()
@@ -68,6 +81,14 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     if (!Number.isFinite(n)) return
     setScanQuota(n)
     flash("Kuota scan berhasil disimpan.")
+  }
+
+  function handleSaveVoiceQuota(e: React.FormEvent) {
+    e.preventDefault()
+    const n = Number(voiceQuotaInput)
+    if (!Number.isFinite(n)) return
+    setVoiceQuota(n)
+    flash("Kuota suara berhasil disimpan.")
   }
 
   return (
@@ -154,7 +175,7 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
             <form onSubmit={handleSaveQuota} className="space-y-2">
               <div className="flex items-center gap-2">
                 <Gauge className="size-4 text-emerald-600 dark:text-emerald-400" />
-                <h3 className="text-sm font-semibold">Kuota Scan AI</h3>
+                <h3 className="text-sm font-semibold">Kuota Scan Struk (Foto)</h3>
               </div>
               <p className="text-xs text-muted-foreground">
                 Sisa kuota saat ini: <span className="font-semibold text-foreground">{scanQuota}</span> / {maxScanQuota}
@@ -182,6 +203,43 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
                 }}
               >
                 Reset Kuota ke {maxScanQuota}
+              </Button>
+            </form>
+
+            <div className="h-px bg-border" />
+
+            {/* Voice quota */}
+            <form onSubmit={handleSaveVoiceQuota} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Mic className="size-4 text-violet-600 dark:text-violet-400" />
+                <h3 className="text-sm font-semibold">Kuota Catat Suara</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sisa kuota saat ini: <span className="font-semibold text-foreground">{voiceQuota}</span> / {maxVoiceQuota}
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={maxVoiceQuota}
+                  value={voiceQuotaInput}
+                  onChange={(e) => setVoiceQuotaInput(e.target.value)}
+                  className={inputClass}
+                />
+                <Button type="submit" variant="outline" className="shrink-0">
+                  Simpan
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  resetVoiceQuota()
+                  flash("Kuota suara direset ke maksimum.")
+                }}
+              >
+                Reset Kuota ke {maxVoiceQuota}
               </Button>
             </form>
 
