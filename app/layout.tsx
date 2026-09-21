@@ -1,8 +1,8 @@
-import React from 'react';
+import type { Metadata } from 'next';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'SmartNetWorth',
-  description: 'SmartNetWorth App',
+  description: 'Kelola kekayaan bersih Anda',
 };
 
 export default function RootLayout({
@@ -12,7 +12,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id">
-      <body>{children}</body>
+      <head>
+        {/* Panggilan Tailwind CSSCDN agar tampilan langsung rapi */}
+        <script src="https://cdn.tailwindcss.com"></script>
+      </head>
+      <body className="bg-slate-50 text-slate-800 antialiased">
+        {children}
+      </body>
     </html>
   );
 }
