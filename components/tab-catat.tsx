@@ -223,10 +223,12 @@ export function TabCatat({
       setVoiceProcessing(true)
       try {
         const result = await parseVoiceTransaction(finalText)
-        if (sub !== "expense") switchSub("expense")
+        const detectedType: SubTab = result.type === "income" ? "income" : "expense"
+        if (sub !== detectedType) switchSub(detectedType)
+        const categoryList = detectedType === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
         setTitle(result.title)
         setAmount(String(result.amount))
-        setCategory(EXPENSE_CATEGORIES.includes(result.category as never) ? result.category : "Lainnya")
+        setCategory(categoryList.includes(result.category as never) ? result.category : "Lainnya")
         setDate(result.date)
         setOcrSuccess(`Suara terbaca: "${finalText}" → ${result.title}`)
         setVoiceConfirmPending(true)
