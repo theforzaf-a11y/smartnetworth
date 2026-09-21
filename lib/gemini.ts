@@ -1,4 +1,5 @@
 export interface OcrResult {
+  type?: "expense" | "income"
   title: string
   amount: number
   category: string
