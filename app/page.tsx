@@ -122,7 +122,7 @@ function AppShell() {
           type: "expense",
           amount: result.amount,
           category: result.category || "Lainnya",
-          note: result.description ? `[Scan OCR] ${result.description}` : "[Scan OCR] Transaksi dari Faktur",
+          description: result.description ? `[Scan OCR] ${result.description}` : "Scan OCR Transaksi dari Faktur",
           entity: entityFilter === "semua" ? "pribadi" : entityFilter,
           date: result.date || new Date().toISOString().split("T")[0],
         })
