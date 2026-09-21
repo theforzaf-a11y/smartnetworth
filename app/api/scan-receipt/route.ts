@@ -10,48 +10,45 @@ export async function POST(req: Request) {
       );
     }
 
-    const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const { dataUrl } = await req.json();
 
-    if (!file) {
+    if (!dataUrl || typeof dataUrl !== 'string') {
       return NextResponse.json(
-        { error: 'File tidak ditemukan' },
+        { error: 'Gambar tidak ditemukan' },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-    const mimeType = file.type || 'image/jpeg';
+    const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
+    if (!match) {
+      return NextResponse.json(
+        { error: 'Format gambar tidak valid' },
+        { status: 400 }
+      );
+    }
+    const mimeType = match[1];
+    const base64Data = match[2];
 
     const prompt = `Analisis foto struk/faktur ini dan kembalikan JSON murni tanpa markdown/backticks.
 Format JSON:
 {
-  "merchant": "nama toko",
-  "date": "YYYY-MM-DD",
-  "total": angka_nominal,
-  "items": [{"name": "nama barang", "price": angka_nominal}]
+  "title": "nama toko atau keterangan singkat transaksi",
+  "amount": angka_nominal_total,
+  "category": "kategori pengeluaran yang paling sesuai, misal Makanan/Transportasi/Belanja/Tagihan/Hiburan/Kesehatan/Lainnya",
+  "date": "YYYY-MM-DD"
 }`;
 
-    // Menggunakan model gemini-3.6-flash sesuai rekomendasi resmi Google API
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [
             {
               parts: [
                 { text: prompt },
-                {
-                  inline_data: {
-                    mime_type: mimeType,
-                    data: base64Data,
-                  },
-                },
+                { inline_data: { mime_type: mimeType, data: base64Data } },
               ],
             },
           ],
@@ -63,22 +60,33 @@ Format JSON:
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: 'Error dari Google Gemini API', details: data.error?.message || data },
+        { error: data.error?.message || 'Error dari Google Gemini API' },
         { status: response.status }
       );
     }
 
     const textResult = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const cleanJson = textResult.replace(/```json|```/g, '').replace(/```/g, '').trim();
+    const cleanJson = textResult.replace(/```json|```/g, '').trim();
 
+    let parsed: any;
     try {
-      return NextResponse.json(JSON.parse(cleanJson));
+      parsed = JSON.parse(cleanJson);
     } catch {
-      return NextResponse.json({ rawText: textResult });
+      return NextResponse.json(
+        { error: 'Gagal membaca hasil AI, coba foto ulang dengan pencahayaan lebih baik' },
+        { status: 500 }
+      );
     }
+
+    return NextResponse.json({
+      title: parsed.title || parsed.merchant || 'Scan Struk',
+      amount: Number(parsed.amount ?? parsed.total ?? 0),
+      category: parsed.category || 'Lainnya',
+      date: parsed.date || new Date().toISOString().split('T')[0],
+    });
   } catch (error: any) {
     return NextResponse.json(
-      { error: 'Gagal memproses struk dengan AI', details: error.message },
+      { error: 'Gagal memproses struk dengan AI: ' + error.message },
       { status: 500 }
     );
   }
