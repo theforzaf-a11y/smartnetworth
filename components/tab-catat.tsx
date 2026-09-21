@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Lock,
+  Mic,
+  MicOff,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/finance-ui"
@@ -24,7 +26,7 @@ import {
   type TxType,
 } from "@/lib/finance"
 import { EntitySelector } from "@/components/entity-toggle"
-import { fileToDataUrl, scanReceipt } from "@/lib/gemini"
+import { fileToDataUrl, scanReceipt, parseVoiceTransaction } from "@/lib/gemini"
 import { useAccess } from "@/lib/access-context"
 
 type SubTab = "expense" | "income" | "asset" | "debt"
@@ -77,6 +79,11 @@ export function TabCatat({
   const [cameraLoading, setCameraLoading] = useState(false)
   const [ocrError, setOcrError] = useState("")
   const [ocrSuccess, setOcrSuccess] = useState("")
+  const [isListening, setIsListening] = useState(false)
+  const [voiceProcessing, setVoiceProcessing] = useState(false)
+  const [voiceTranscript, setVoiceTranscript] = useState("")
+  const recognitionRef = useRef<any>(null)
+  const transcriptRef = useRef("")
 
   const uploadRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -145,6 +152,89 @@ export function TabCatat({
     }
   }
 
+  function getSpeechRecognition(): any {
+    if (typeof window === "undefined") return null
+    const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    return SpeechRecognitionCtor ? new SpeechRecognitionCtor() : null
+  }
+
+  function stopVoiceInput() {
+    recognitionRef.current?.stop()
+  }
+
+  function startVoiceInput() {
+    setOcrError("")
+    setOcrSuccess("")
+    setVoiceTranscript("")
+    transcriptRef.current = ""
+
+    if (!consumeScan()) {
+      setOcrError(
+        `Masa uji coba Scan AI telah habis (0/${maxScanQuota}). Hubungi Admin SmartNetWorth untuk upgrade akses.`,
+      )
+      return
+    }
+
+    const recognition = getSpeechRecognition()
+    if (!recognition) {
+      setOcrError("Perangkat/browser ini tidak mendukung input suara. Coba gunakan Google Chrome.")
+      return
+    }
+
+    recognition.lang = "id-ID"
+    recognition.interimResults = true
+    recognition.continuous = false
+
+    recognition.onstart = () => {
+      setIsListening(true)
+    }
+
+    recognition.onresult = (event: any) => {
+      let finalText = ""
+      for (let i = 0; i < event.results.length; i++) {
+        finalText += event.results[i][0].transcript
+      }
+      transcriptRef.current = finalText
+      setVoiceTranscript(finalText)
+    }
+
+    recognition.onerror = (event: any) => {
+      setIsListening(false)
+      setOcrError(
+        event.error === "not-allowed"
+          ? "Izin mikrofon ditolak. Aktifkan akses mikrofon di pengaturan browser."
+          : "Gagal merekam suara, coba lagi.",
+      )
+    }
+
+    recognition.onend = async () => {
+      setIsListening(false)
+      recognitionRef.current = null
+      const finalText = transcriptRef.current.trim()
+      if (!finalText) {
+        setOcrError("Tidak ada suara yang terdeteksi. Coba lagi.")
+        return
+      }
+      setVoiceProcessing(true)
+      try {
+        const result = await parseVoiceTransaction(finalText)
+        if (sub !== "expense") switchSub("expense")
+        setTitle(result.title)
+        setAmount(String(result.amount))
+        setCategory(EXPENSE_CATEGORIES.includes(result.category as never) ? result.category : "Lainnya")
+        setDate(result.date)
+        setOcrSuccess(`Suara terbaca: "${finalText}" → ${result.title}`)
+      } catch (err) {
+        setOcrError(err instanceof Error ? err.message : "Gagal memproses ucapan")
+      } finally {
+        setVoiceProcessing(false)
+      }
+    }
+
+    recognitionRef.current = recognition
+    recognition.start()
+  }
+
   const categories = sub === "debt" ? [] : CATEGORY_MAP[sub]
 
   return (
@@ -209,7 +299,7 @@ export function TabCatat({
             variant="outline"
             size="lg"
             className="h-auto flex-col gap-1.5 py-4"
-            disabled={uploadLoading || cameraLoading || quotaExhausted}
+            disabled={uploadLoading || cameraLoading || isListening || voiceProcessing || quotaExhausted}
             onClick={() => uploadRef.current?.click()}
           >
             {uploadLoading ? (
@@ -225,7 +315,7 @@ export function TabCatat({
             variant="outline"
             size="lg"
             className="h-auto flex-col gap-1.5 py-4"
-            disabled={uploadLoading || cameraLoading || quotaExhausted}
+            disabled={uploadLoading || cameraLoading || isListening || voiceProcessing || quotaExhausted}
             onClick={() => cameraRef.current?.click()}
           >
             {cameraLoading ? (
@@ -238,6 +328,38 @@ export function TabCatat({
             </span>
           </Button>
         </div>
+
+        <div className="mt-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="h-auto w-full flex-row items-center justify-center gap-2 py-3"
+            disabled={uploadLoading || cameraLoading || voiceProcessing || quotaExhausted}
+            onClick={isListening ? stopVoiceInput : startVoiceInput}
+          >
+            {isListening ? (
+              <MicOff className="size-5 animate-pulse text-rose-600" />
+            ) : voiceProcessing ? (
+              <Loader2 className="size-5 animate-spin" />
+            ) : (
+              <Mic className="size-5" />
+            )}
+            <span className="text-sm font-medium">
+              {isListening
+                ? "Mendengarkan... (ketuk untuk berhenti)"
+                : voiceProcessing
+                  ? "Memproses ucapan..."
+                  : "Catat dengan Suara"}
+            </span>
+          </Button>
+        </div>
+
+        {isListening && voiceTranscript ? (
+          <p className="mt-3 rounded-lg bg-muted/60 px-3 py-2 text-xs italic text-muted-foreground">
+            "{voiceTranscript}"
+          </p>
+        ) : null}
 
         {ocrError ? (
           <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">
