@@ -5,6 +5,7 @@ import {
   DEFAULT_PASSCODE,
   MASTER_ADMIN_PASSWORD,
   MAX_SCAN_QUOTA,
+  MAX_VOICE_QUOTA,
   STORAGE_KEYS,
 } from "@/lib/finance"
 
@@ -15,11 +16,16 @@ interface AccessContextValue {
   /** AI scans remaining for this device (0..MAX_SCAN_QUOTA). */
   scanQuota: number
   maxScanQuota: number
+  /** AI voice-input transactions remaining for this device (0..MAX_VOICE_QUOTA). */
+  voiceQuota: number
+  maxVoiceQuota: number
   /** Attempt to unlock with a passcode. Returns true on success. */
   unlock: (input: string) => boolean
   lock: () => void
   /** Consume one AI scan. Returns true if a scan was available and consumed. */
   consumeScan: () => boolean
+  /** Consume one AI voice-input transaction. Returns true if one was available and consumed. */
+  consumeVoice: () => boolean
   /** Verify the master admin password. */
   verifyMaster: (input: string) => boolean
   /** Change the password-gate passcode (takes effect immediately). */
@@ -28,6 +34,10 @@ interface AccessContextValue {
   setScanQuota: (next: number) => void
   /** Reset the remaining scan quota back to the maximum. */
   resetScanQuota: () => void
+  /** Set the remaining voice quota (clamped to 0..MAX_VOICE_QUOTA). */
+  setVoiceQuota: (next: number) => void
+  /** Reset the remaining voice quota back to the maximum. */
+  resetVoiceQuota: () => void
 }
 
 const AccessContext = createContext<AccessContextValue | null>(null)
@@ -44,6 +54,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
   const [scanQuota, setScanQuotaState] = useState(MAX_SCAN_QUOTA)
+  const [voiceQuota, setVoiceQuotaState] = useState(MAX_VOICE_QUOTA)
 
   // Load persisted access state on mount.
   useEffect(() => {
@@ -61,6 +72,15 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       } else {
         const n = Number(rawQuota)
         setScanQuotaState(Number.isFinite(n) ? Math.min(Math.max(n, 0), MAX_SCAN_QUOTA) : MAX_SCAN_QUOTA)
+      }
+
+      const rawVoiceQuota = localStorage.getItem(STORAGE_KEYS.voiceQuota)
+      if (rawVoiceQuota === null) {
+        localStorage.setItem(STORAGE_KEYS.voiceQuota, String(MAX_VOICE_QUOTA))
+        setVoiceQuotaState(MAX_VOICE_QUOTA)
+      } else {
+        const n = Number(rawVoiceQuota)
+        setVoiceQuotaState(Number.isFinite(n) ? Math.min(Math.max(n, 0), MAX_VOICE_QUOTA) : MAX_VOICE_QUOTA)
       }
     } catch (e) {
       console.log("[v0] Failed to load access state:", e)
@@ -102,6 +122,17 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     return clamped
   }, [])
 
+  const persistVoiceQuota = useCallback((value: number) => {
+    const clamped = Math.min(Math.max(Math.round(value), 0), MAX_VOICE_QUOTA)
+    setVoiceQuotaState(clamped)
+    try {
+      localStorage.setItem(STORAGE_KEYS.voiceQuota, String(clamped))
+    } catch (e) {
+      console.log("[v0] Failed to persist voice quota:", e)
+    }
+    return clamped
+  }, [])
+
   const consumeScan = useCallback(() => {
     let consumed = false
     setScanQuotaState((prev) => {
@@ -112,6 +143,22 @@ export function AccessProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(STORAGE_KEYS.scanQuota, String(next))
       } catch (e) {
         console.log("[v0] Failed to persist scan quota:", e)
+      }
+      return next
+    })
+    return consumed
+  }, [])
+
+  const consumeVoice = useCallback(() => {
+    let consumed = false
+    setVoiceQuotaState((prev) => {
+      if (prev <= 0) return prev
+      consumed = true
+      const next = prev - 1
+      try {
+        localStorage.setItem(STORAGE_KEYS.voiceQuota, String(next))
+      } catch (e) {
+        console.log("[v0] Failed to persist voice quota:", e)
       }
       return next
     })
@@ -141,6 +188,17 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     persistQuota(MAX_SCAN_QUOTA)
   }, [persistQuota])
 
+  const setVoiceQuota = useCallback(
+    (next: number) => {
+      persistVoiceQuota(next)
+    },
+    [persistVoiceQuota],
+  )
+
+  const resetVoiceQuota = useCallback(() => {
+    persistVoiceQuota(MAX_VOICE_QUOTA)
+  }, [persistVoiceQuota])
+
   return (
     <AccessContext.Provider
       value={{
@@ -148,13 +206,18 @@ export function AccessProvider({ children }: { children: ReactNode }) {
         unlocked,
         scanQuota,
         maxScanQuota: MAX_SCAN_QUOTA,
+        voiceQuota,
+        maxVoiceQuota: MAX_VOICE_QUOTA,
         unlock,
         lock,
         consumeScan,
+        consumeVoice,
         verifyMaster,
         setPasscode,
         setScanQuota,
         resetScanQuota,
+        setVoiceQuota,
+        resetVoiceQuota,
       }}
     >
       {children}
