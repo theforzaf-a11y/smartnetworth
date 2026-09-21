@@ -33,3 +33,23 @@ export async function scanReceipt(dataUrl: string): Promise<OcrResult> {
 
   return data as OcrResult
 }
+
+/**
+ * Send transcribed voice text to our server, which asks Gemini to extract
+ * structured transaction data (title, amount, category, date).
+ */
+export async function parseVoiceTransaction(text: string): Promise<OcrResult> {
+  const res = await fetch("/api/parse-voice", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  })
+
+  const data = await res.json().catch(() => null)
+
+  if (!res.ok) {
+    throw new Error(data?.error || `Gagal memproses ucapan (${res.status})`)
+  }
+
+  return data as OcrResult
+}
