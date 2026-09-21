@@ -59,13 +59,17 @@ Ekstrak informasi berikut dari teks di bawah, lalu kembalikan JSON murni tanpa m
 
 Format JSON:
 {
+  "type": "expense atau income",
   "title": "keterangan singkat transaksi",
   "amount": angka_nominal_dalam_rupiah_tanpa_pemisah_ribuan,
-  "category": "kategori pengeluaran yang paling sesuai, misal Makanan/Transportasi/Belanja/Tagihan/Hiburan/Kesehatan/Lainnya",
+  "category": "kategori yang paling sesuai dengan jenis transaksinya",
   "date": "YYYY-MM-DD"
 }
 
 Aturan:
+- "type" = "income" jika transaksi berupa uang MASUK/diterima, contoh: penjualan, gaji, bonus, terima pembayaran, pendapatan.
+- "type" = "expense" jika transaksi berupa uang KELUAR/dibayarkan, contoh: belanja, bayar tagihan, beli sesuatu, berobat, jajan.
+- Jika ragu, gunakan "expense".
 - Jika tanggal tidak disebutkan secara eksplisit, gunakan tanggal hari ini: ${today}.
 - Jika kategori tidak jelas, gunakan "Lainnya".
 - "amount" harus berupa angka murni, tanpa "Rp", titik, atau koma.
@@ -94,6 +98,7 @@ Teks ucapan pengguna: "${text}"`;
           }
 
           return NextResponse.json({
+            type: parsed.type === 'income' ? 'income' : 'expense',
             title: parsed.title || 'Transaksi Suara',
             amount: Number(parsed.amount ?? 0),
             category: parsed.category || 'Lainnya',
