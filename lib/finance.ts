@@ -469,3 +469,37 @@ export function seedTransactions(): Transaction[] {
 export function seedReceivables(): Receivable[] {
   return []
 }
+
+/** Keyword hints used to auto-suggest a category from the transaction title. */
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  // Expense
+  Makanan: ["makan", "makanan", "sarapan", "resto", "restoran", "warung", "kafe", "cafe", "kopi", "jajan", "nasi", "ayam", "bakso", "mie", "snack", "minuman", "catering"],
+  Transportasi: ["bensin", "bbm", "grab", "gojek", "ojek", "taxi", "taksi", "parkir", "tol", "transportasi", "bus", "kereta", "pesawat", "tiket", "angkot", "servis motor", "servis mobil", "bengkel"],
+  Belanja: ["belanja", "beli", "baju", "sepatu", "elektronik", "supermarket", "minimarket", "indomaret", "alfamart", "mall", "shopping"],
+  Tagihan: ["tagihan", "listrik", "pln", "air", "pdam", "internet", "wifi", "telepon", "pulsa", "token", "bpjs", "asuransi", "cicilan", "sewa", "kontrakan", "kos", "iuran"],
+  Hiburan: ["hiburan", "nonton", "bioskop", "netflix", "spotify", "game", "konser", "liburan", "wisata", "karaoke"],
+  Kesehatan: ["dokter", "obat", "klinik", "rumah sakit", "apotek", "gigi", "kesehatan", "vitamin", "vaksin", "terapi", "berobat"],
+  // Income
+  Penjualan: ["jual", "penjualan", "dagang", "toko", "laku", "order", "pesanan", "omzet", "omset"],
+  Gaji: ["gaji", "salary", "upah"],
+  Bonus: ["bonus", "thr", "insentif"],
+  Freelance: ["freelance", "project", "proyek", "klien", "honor", "jasa"],
+  Investasi: ["dividen", "bunga", "profit", "cuan", "saham"],
+}
+
+/**
+ * Suggest a category by matching keywords found in the transaction title.
+ * Returns null if no keyword matches (caller should keep the current category).
+ */
+export function suggestCategory(title: string, categories: readonly string[]): string | null {
+  const text = title.toLowerCase().trim()
+  if (!text) return null
+  for (const category of categories) {
+    const keywords = CATEGORY_KEYWORDS[category]
+    if (!keywords) continue
+    if (keywords.some((kw) => text.includes(kw))) {
+      return category
+    }
+  }
+  return null
+}
