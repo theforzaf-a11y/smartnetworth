@@ -187,11 +187,12 @@ function AppShell() {
           <div className="flex items-center gap-1.5">
            <Button variant="ghost" size="icon-sm" 
                    onClick={() => setHelpOpen(true)}>
-              <HelpCircle className="size-4" />
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Reset data contoh"
+            <HelpCircle className="size-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Reset data contoh"
               title="Reset data contoh"
               onClick={() => {
                 if (confirm("Reset semua data ke contoh awal?")) finance.resetData()
