@@ -436,7 +436,7 @@ export function TabCatat({
             <button
               key={s.key}
               onClick={() => switchSub(s.key)}
-              className={cnTab(sub === s.key)}
+              className={cnTab(sub === s.key, s.key)}
             >
               {s.label}
             </button>
@@ -766,11 +766,19 @@ function PaymentMethodOption({
 const inputClass =
   "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
 
-function cnTab(active: boolean) {
+function cnTab(active: boolean, key?: SubTab) {
+  const activeColor: Record<SubTab, string> = {
+    expense: "bg-rose-500 text-white shadow-sm",
+    income: "bg-emerald-500 text-white shadow-sm",
+    asset: "bg-blue-500 text-white shadow-sm",
+    debt: "bg-amber-500 text-white shadow-sm",
+  }
   return [
     "flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium transition-all sm:text-sm",
     active
-      ? "bg-background text-foreground shadow-sm"
+      ? key
+        ? activeColor[key]
+        : "bg-background text-foreground shadow-sm"
       : "text-muted-foreground hover:text-foreground",
   ].join(" ")
 }
