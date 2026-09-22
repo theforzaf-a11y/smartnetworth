@@ -15,6 +15,7 @@ import {
   Upload,
   Loader2,
   CheckCircle2,
+  HelpCircle,
 } from "lucide-react"
 import { FoxLogo } from "@/components/fox-logo"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,7 @@ import { TabPiutang } from "@/components/tab-piutang"
 import { TabPajak } from "@/components/tab-pajak"
 import { PasswordGate } from "@/components/password-gate"
 import { AdminSettings } from "@/components/admin-settings"
+import { HelpGuide } from "@/components/help-guide"
 import { EntityFilterToggle } from "@/components/entity-toggle"
 import { useFinance } from "@/lib/use-finance"
 import { filterLiabByEntity, filterRecvByEntity, filterTxByEntity, type EntityFilter } from "@/lib/finance"
@@ -84,6 +86,7 @@ function AppShell() {
   const [tab, setTab] = useState<Tab>("ringkasan")
   const [prefillDebtId, setPrefillDebtId] = useState<string | null>(null)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [entityFilter, setEntityFilter] = useState<EntityFilter>("semua")
   
   // State untuk Scan Faktur AI
