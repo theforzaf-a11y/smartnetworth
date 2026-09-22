@@ -22,6 +22,7 @@ import {
   INCOME_CATEGORIES,
   type Liability,
   type PaymentMethod,
+  suggestCategory,
   type Transaction,
   type TxType,
 } from "@/lib/finance"
