@@ -461,10 +461,8 @@ export function TabCatat({
                 onChange={(e) => {
                   const next = e.target.value
                   setTitle(next)
-                  if (sub !== "debt") {
-                    const suggested = suggestCategory(next, categories)
-                    if (suggested) setCategory(suggested)
-                  }
+                  const suggested = suggestCategory(next, categories)
+                  if (suggested) setCategory(suggested)
                 }}
                 placeholder="cth. Belanja bulanan"
                 className={inputClass}
