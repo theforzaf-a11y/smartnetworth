@@ -185,6 +185,9 @@ function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+           <Button variant="ghost" size="icon-sm" 
+                   onClick={() => setHelpOpen(true)}>
+              <HelpCircle className="size-4" />
             <Button
               variant="ghost"
               size="icon-sm"
@@ -363,6 +366,7 @@ function AppShell() {
       </div>
 
       {adminOpen ? <AdminSettings onClose={() => setAdminOpen(false)} /> : null}
+      {helpOpen ? <HelpGuide onClose={() => setHelpOpen(false)} /> : null}
     </main>
   )
 }
