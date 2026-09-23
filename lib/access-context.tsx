@@ -1,219 +1,153 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
-import {
-  DEFAULT_PASSCODE,
-  MASTER_ADMIN_PASSWORD,
-  MAX_SCAN_QUOTA,
-  MAX_VOICE_QUOTA,
-  STORAGE_KEYS,
-} from "@/lib/finance"
+import type { User } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase"
+import { MASTER_ADMIN_PASSWORD, MAX_SCAN_QUOTA, MAX_VOICE_QUOTA } from "@/lib/finance"
+
+interface Profile {
+  scan_quota: number
+  max_scan_quota: number
+  voice_quota: number
+  max_voice_quota: number
+}
 
 interface AccessContextValue {
   hydrated: boolean
-  /** Whether the user has passed the password gate. */
   unlocked: boolean
-  /** AI scans remaining for this device (0..MAX_SCAN_QUOTA). */
+  user: User | null
   scanQuota: number
   maxScanQuota: number
-  /** AI voice-input transactions remaining for this device (0..MAX_VOICE_QUOTA). */
   voiceQuota: number
   maxVoiceQuota: number
-  /** Attempt to unlock with a passcode. Returns true on success. */
-  unlock: (input: string) => boolean
   lock: () => void
-  /** Consume one AI scan. Returns true if a scan was available and consumed. */
   consumeScan: () => boolean
-  /** Consume one AI voice-input transaction. Returns true if one was available and consumed. */
   consumeVoice: () => boolean
-  /** Verify the master admin password. */
   verifyMaster: (input: string) => boolean
-  /** Change the password-gate passcode (takes effect immediately). */
-  setPasscode: (next: string) => void
-  /** Set the remaining scan quota (clamped to 0..MAX_SCAN_QUOTA). */
   setScanQuota: (next: number) => void
-  /** Reset the remaining scan quota back to the maximum. */
   resetScanQuota: () => void
-  /** Set the remaining voice quota (clamped to 0..MAX_VOICE_QUOTA). */
   setVoiceQuota: (next: number) => void
-  /** Reset the remaining voice quota back to the maximum. */
   resetVoiceQuota: () => void
 }
 
 const AccessContext = createContext<AccessContextValue | null>(null)
 
-function readPasscode(): string {
-  try {
-    return localStorage.getItem(STORAGE_KEYS.passcode) || DEFAULT_PASSCODE
-  } catch {
-    return DEFAULT_PASSCODE
-  }
+const DEFAULT_PROFILE: Profile = {
+  scan_quota: MAX_SCAN_QUOTA,
+  max_scan_quota: MAX_SCAN_QUOTA,
+  voice_quota: MAX_VOICE_QUOTA,
+  max_voice_quota: MAX_VOICE_QUOTA,
 }
 
 export function AccessProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
-  const [unlocked, setUnlocked] = useState(false)
-  const [scanQuota, setScanQuotaState] = useState(MAX_SCAN_QUOTA)
-  const [voiceQuota, setVoiceQuotaState] = useState(MAX_VOICE_QUOTA)
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE)
 
-  // Load persisted access state on mount.
+  const loadProfile = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("scan_quota, max_scan_quota, voice_quota, max_voice_quota")
+      .eq("id", userId)
+      .single()
+    if (data) setProfile(data as Profile)
+  }, [])
+
   useEffect(() => {
-    try {
-      setUnlocked(localStorage.getItem(STORAGE_KEYS.unlocked) === "1")
-
-      if (!localStorage.getItem(STORAGE_KEYS.passcode)) {
-        localStorage.setItem(STORAGE_KEYS.passcode, DEFAULT_PASSCODE)
-      }
-
-      const rawQuota = localStorage.getItem(STORAGE_KEYS.scanQuota)
-      if (rawQuota === null) {
-        localStorage.setItem(STORAGE_KEYS.scanQuota, String(MAX_SCAN_QUOTA))
-        setScanQuotaState(MAX_SCAN_QUOTA)
-      } else {
-        const n = Number(rawQuota)
-        setScanQuotaState(Number.isFinite(n) ? Math.min(Math.max(n, 0), MAX_SCAN_QUOTA) : MAX_SCAN_QUOTA)
-      }
-
-      const rawVoiceQuota = localStorage.getItem(STORAGE_KEYS.voiceQuota)
-      if (rawVoiceQuota === null) {
-        localStorage.setItem(STORAGE_KEYS.voiceQuota, String(MAX_VOICE_QUOTA))
-        setVoiceQuotaState(MAX_VOICE_QUOTA)
-      } else {
-        const n = Number(rawVoiceQuota)
-        setVoiceQuotaState(Number.isFinite(n) ? Math.min(Math.max(n, 0), MAX_VOICE_QUOTA) : MAX_VOICE_QUOTA)
-      }
-    } catch (e) {
-      console.log("[v0] Failed to load access state:", e)
-    } finally {
+    supabase.auth.getSession().then(({ data }) => {
+      const sessionUser = data.session?.user ?? null
+      setUser(sessionUser)
+      if (sessionUser) loadProfile(sessionUser.id)
       setHydrated(true)
-    }
-  }, [])
+    })
 
-  const unlock = useCallback((input: string) => {
-    if (input === readPasscode()) {
-      setUnlocked(true)
-      try {
-        localStorage.setItem(STORAGE_KEYS.unlocked, "1")
-      } catch (e) {
-        console.log("[v0] Failed to persist unlocked state:", e)
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const sessionUser = session?.user ?? null
+      setUser(sessionUser)
+      if (sessionUser) {
+        loadProfile(sessionUser.id)
+      } else {
+        setProfile(DEFAULT_PROFILE)
       }
-      return true
-    }
-    return false
-  }, [])
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [loadProfile])
 
   const lock = useCallback(() => {
-    setUnlocked(false)
-    try {
-      localStorage.removeItem(STORAGE_KEYS.unlocked)
-    } catch (e) {
-      console.log("[v0] Failed to clear unlocked state:", e)
-    }
-  }, [])
-
-  const persistQuota = useCallback((value: number) => {
-    const clamped = Math.min(Math.max(Math.round(value), 0), MAX_SCAN_QUOTA)
-    setScanQuotaState(clamped)
-    try {
-      localStorage.setItem(STORAGE_KEYS.scanQuota, String(clamped))
-    } catch (e) {
-      console.log("[v0] Failed to persist scan quota:", e)
-    }
-    return clamped
-  }, [])
-
-  const persistVoiceQuota = useCallback((value: number) => {
-    const clamped = Math.min(Math.max(Math.round(value), 0), MAX_VOICE_QUOTA)
-    setVoiceQuotaState(clamped)
-    try {
-      localStorage.setItem(STORAGE_KEYS.voiceQuota, String(clamped))
-    } catch (e) {
-      console.log("[v0] Failed to persist voice quota:", e)
-    }
-    return clamped
+    supabase.auth.signOut()
   }, [])
 
   const consumeScan = useCallback(() => {
+    if (!user) return false
     let consumed = false
-    setScanQuotaState((prev) => {
-      if (prev <= 0) return prev
+    setProfile((prev) => {
+      if (prev.scan_quota <= 0) return prev
       consumed = true
-      const next = prev - 1
-      try {
-        localStorage.setItem(STORAGE_KEYS.scanQuota, String(next))
-      } catch (e) {
-        console.log("[v0] Failed to persist scan quota:", e)
-      }
-      return next
+      const next = prev.scan_quota - 1
+      supabase.from("profiles").update({ scan_quota: next }).eq("id", user.id).then()
+      return { ...prev, scan_quota: next }
     })
     return consumed
-  }, [])
+  }, [user])
 
   const consumeVoice = useCallback(() => {
+    if (!user) return false
     let consumed = false
-    setVoiceQuotaState((prev) => {
-      if (prev <= 0) return prev
+    setProfile((prev) => {
+      if (prev.voice_quota <= 0) return prev
       consumed = true
-      const next = prev - 1
-      try {
-        localStorage.setItem(STORAGE_KEYS.voiceQuota, String(next))
-      } catch (e) {
-        console.log("[v0] Failed to persist voice quota:", e)
-      }
-      return next
+      const next = prev.voice_quota - 1
+      supabase.from("profiles").update({ voice_quota: next }).eq("id", user.id).then()
+      return { ...prev, voice_quota: next }
     })
     return consumed
-  }, [])
+  }, [user])
 
   const verifyMaster = useCallback((input: string) => input === MASTER_ADMIN_PASSWORD, [])
 
-  const setPasscode = useCallback((next: string) => {
-    const value = next.trim()
-    if (!value) return
-    try {
-      localStorage.setItem(STORAGE_KEYS.passcode, value)
-    } catch (e) {
-      console.log("[v0] Failed to persist passcode:", e)
-    }
-  }, [])
-
   const setScanQuota = useCallback(
     (next: number) => {
-      persistQuota(next)
+      if (!user) return
+      const clamped = Math.min(Math.max(Math.round(next), 0), profile.max_scan_quota)
+      setProfile((prev) => ({ ...prev, scan_quota: clamped }))
+      supabase.from("profiles").update({ scan_quota: clamped }).eq("id", user.id).then()
     },
-    [persistQuota],
+    [user, profile.max_scan_quota],
   )
 
   const resetScanQuota = useCallback(() => {
-    persistQuota(MAX_SCAN_QUOTA)
-  }, [persistQuota])
+    setScanQuota(profile.max_scan_quota)
+  }, [setScanQuota, profile.max_scan_quota])
 
   const setVoiceQuota = useCallback(
     (next: number) => {
-      persistVoiceQuota(next)
+      if (!user) return
+      const clamped = Math.min(Math.max(Math.round(next), 0), profile.max_voice_quota)
+      setProfile((prev) => ({ ...prev, voice_quota: clamped }))
+      supabase.from("profiles").update({ voice_quota: clamped }).eq("id", user.id).then()
     },
-    [persistVoiceQuota],
+    [user, profile.max_voice_quota],
   )
 
   const resetVoiceQuota = useCallback(() => {
-    persistVoiceQuota(MAX_VOICE_QUOTA)
-  }, [persistVoiceQuota])
+    setVoiceQuota(profile.max_voice_quota)
+  }, [setVoiceQuota, profile.max_voice_quota])
 
   return (
     <AccessContext.Provider
       value={{
         hydrated,
-        unlocked,
-        scanQuota,
-        maxScanQuota: MAX_SCAN_QUOTA,
-        voiceQuota,
-        maxVoiceQuota: MAX_VOICE_QUOTA,
-        unlock,
+        unlocked: !!user,
+        user,
+        scanQuota: profile.scan_quota,
+        maxScanQuota: profile.max_scan_quota,
+        voiceQuota: profile.voice_quota,
+        maxVoiceQuota: profile.max_voice_quota,
         lock,
         consumeScan,
         consumeVoice,
         verifyMaster,
-        setPasscode,
         setScanQuota,
         resetScanQuota,
         setVoiceQuota,
