@@ -26,6 +26,7 @@ import { TabHutang } from "@/components/tab-hutang"
 import { TabPiutang } from "@/components/tab-piutang"
 import { TabPajak } from "@/components/tab-pajak"
 import { PasswordGate } from "@/components/password-gate"
+import { TrialExpired } from "@/components/trial-expired"
 import { AdminSettings } from "@/components/admin-settings"
 import { HelpGuide } from "@/components/help-guide"
 import { EntityFilterToggle } from "@/components/entity-toggle"
@@ -156,6 +157,10 @@ function AppShell() {
 
   if (!access.unlocked) {
     return <PasswordGate />
+  }
+
+  if (access.trialExpired) {
+    return <TrialExpired />
   }
 
   return (
