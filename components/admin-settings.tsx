@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { X, ShieldCheck, KeyRound, Gauge, Mic, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAccess } from "@/lib/access-context"
+import { supabase } from "@/lib/supabase"
 
 interface AdminSettingsProps {
   onClose: () => void
@@ -15,7 +16,6 @@ const inputClass =
 export function AdminSettings({ onClose }: AdminSettingsProps) {
   const {
     verifyMaster,
-    setPasscode,
     scanQuota,
     maxScanQuota,
     setScanQuota,
@@ -30,7 +30,9 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
   const [master, setMaster] = useState("")
   const [masterError, setMasterError] = useState(false)
 
-  const [newPass, setNewPass] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  const [passwordError, setPasswordError] = useState("")
   const [quotaInput, setQuotaInput] = useState(String(scanQuota))
   const [voiceQuotaInput, setVoiceQuotaInput] = useState(String(voiceQuota))
   const [savedMsg, setSavedMsg] = useState("")
@@ -67,12 +69,22 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     }
   }
 
-  function handleSavePass(e: React.FormEvent) {
+  async function handleSaveAccountPassword(e: React.FormEvent) {
     e.preventDefault()
-    if (!newPass.trim()) return
-    setPasscode(newPass)
-    setNewPass("")
-    flash("Kode akses berhasil diperbarui.")
+    if (newPassword.trim().length < 6) {
+      setPasswordError("Password minimal 6 karakter.")
+      return
+    }
+    setPasswordSaving(true)
+    setPasswordError("")
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setPasswordSaving(false)
+    if (error) {
+      setPasswordError(error.message)
+      return
+    }
+    setNewPassword("")
+    flash("Password akun berhasil diperbarui.")
   }
 
   function handleSaveQuota(e: React.FormEvent) {
@@ -147,25 +159,32 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
           </form>
         ) : (
           <div className="space-y-6">
-            {/* Change passcode */}
-            <form onSubmit={handleSavePass} className="space-y-2">
+            {/* Change account password */}
+            <form onSubmit={handleSaveAccountPassword} className="space-y-2">
               <div className="flex items-center gap-2">
                 <KeyRound className="size-4 text-indigo-600 dark:text-indigo-400" />
-                <h3 className="text-sm font-semibold">Ubah Kode Akses</h3>
+                <h3 className="text-sm font-semibold">Ubah Password Akun</h3>
               </div>
               <p className="text-xs text-muted-foreground">
-                Kode baru langsung berlaku pada layar kunci tanpa perlu deploy ulang.
+                Mengubah password login akun Anda yang sedang aktif saat ini.
               </p>
               <input
-                type="text"
-                autoComplete="off"
-                value={newPass}
-                onChange={(e) => setNewPass(e.target.value)}
-                placeholder="Kode akses baru"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value)
+                  if (passwordError) setPasswordError("")
+                }}
+                placeholder="Password baru (min. 6 karakter)"
+                aria-invalid={!!passwordError}
                 className={inputClass}
               />
-              <Button type="submit" variant="outline" className="w-full">
-                Simpan Kode Akses
+              {passwordError ? (
+                <p className="text-xs text-destructive">{passwordError}</p>
+              ) : null}
+              <Button type="submit" variant="outline" className="w-full" disabled={passwordSaving}>
+                {passwordSaving ? "Menyimpan..." : "Simpan Password Akun"}
               </Button>
             </form>
 
