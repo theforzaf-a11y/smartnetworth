@@ -1,19 +1,56 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import {
-  DEFAULT_ENTITY,
-  DEFAULT_SALDO_AWAL,
-  type Liability,
-  makeId,
-  type Receivable,
-  seedReceivables,
-  seedTransactions,
-  STORAGE_KEYS,
-  type Transaction,
-} from "@/lib/finance"
+import { DEFAULT_SALDO_AWAL, type Liability, type Receivable, type Transaction } from "@/lib/finance"
+import { supabase } from "@/lib/supabase"
+
+function newId() {
+  return crypto.randomUUID()
+}
+
+function rowToTransaction(r: any): Transaction {
+  return {
+    id: r.id,
+    type: r.type,
+    title: r.title,
+    amount: Number(r.amount),
+    category: r.category,
+    date: r.date,
+    entity: r.entity,
+    paymentMethod: r.payment_method ?? undefined,
+  }
+}
+
+function rowToLiability(r: any): Liability {
+  return {
+    id: r.id,
+    name: r.name,
+    category: r.category,
+    principal: Number(r.principal),
+    monthlyPayment: Number(r.monthly_payment),
+    dueDay: r.due_day,
+    createdAt: r.created_date,
+    entity: r.entity,
+    tenorMonths: r.tenor_months ?? undefined,
+    paidInstallments: r.paid_installments ?? undefined,
+  }
+}
+
+function rowToReceivable(r: any): Receivable {
+  return {
+    id: r.id,
+    customer: r.customer,
+    amount: Number(r.amount),
+    date: r.date,
+    dueDate: r.due_date,
+    entity: r.entity,
+    status: r.status,
+    paidDate: r.paid_date ?? undefined,
+  }
+}
 
 export function useFinance() {
+  const [userId, setUserId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [saldoAwal, setSaldoAwalState] = useState<number>(DEFAULT_SALDO_AWAL)
   const [saldoAwalHutang, setSaldoAwalHutangState] = useState<number>(DEFAULT_SALDO_AWAL)
@@ -22,223 +59,203 @@ export function useFinance() {
   const [receivables, setReceivables] = useState<Receivable[]>([])
   const [hydrated, setHydrated] = useState(false)
 
-  // Load from localStorage on mount, seeding if empty.
   useEffect(() => {
-    try {
-      const rawTx = localStorage.getItem(STORAGE_KEYS.transactions)
-      if (rawTx) {
-        // Migrate legacy records that predate entity tagging.
-        const parsed: Transaction[] = JSON.parse(rawTx)
-        setTransactions(parsed.map((t) => ({ ...t, entity: t.entity ?? DEFAULT_ENTITY })))
-      } else {
-        const seeded = seedTransactions()
-        setTransactions(seeded)
-        localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(seeded))
-      }
+    let active = true
 
-      const rawSaldo = localStorage.getItem(STORAGE_KEYS.saldoAwal)
-      if (rawSaldo) {
-        setSaldoAwalState(Number(rawSaldo))
-      } else {
-        localStorage.setItem(STORAGE_KEYS.saldoAwal, String(DEFAULT_SALDO_AWAL))
+    async function loadAll(uid: string) {
+      const [txRes, liabRes, recvRes, profileRes] = await Promise.all([
+        supabase.from("transactions").select("*").eq("user_id", uid).order("date", { ascending: false }),
+        supabase.from("liabilities").select("*").eq("user_id", uid).order("created_at", { ascending: false }),
+        supabase.from("receivables").select("*").eq("user_id", uid).order("date", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("saldo_awal, saldo_awal_hutang, saldo_awal_piutang")
+          .eq("id", uid)
+          .maybeSingle(),
+      ])
+      if (!active) return
+      setTransactions((txRes.data ?? []).map(rowToTransaction))
+      setLiabilities((liabRes.data ?? []).map(rowToLiability))
+      setReceivables((recvRes.data ?? []).map(rowToReceivable))
+      if (profileRes.data) {
+        setSaldoAwalState(Number(profileRes.data.saldo_awal ?? 0))
+        setSaldoAwalHutangState(Number(profileRes.data.saldo_awal_hutang ?? 0))
+        setSaldoAwalPiutangState(Number(profileRes.data.saldo_awal_piutang ?? 0))
       }
-
-      const rawSaldoHutang = localStorage.getItem(STORAGE_KEYS.saldoAwalHutang)
-      if (rawSaldoHutang) {
-        setSaldoAwalHutangState(Number(rawSaldoHutang))
-      } else {
-        localStorage.setItem(STORAGE_KEYS.saldoAwalHutang, String(DEFAULT_SALDO_AWAL))
-      }
-
-      const rawSaldoPiutang = localStorage.getItem(STORAGE_KEYS.saldoAwalPiutang)
-      if (rawSaldoPiutang) {
-        setSaldoAwalPiutangState(Number(rawSaldoPiutang))
-      } else {
-        localStorage.setItem(STORAGE_KEYS.saldoAwalPiutang, String(DEFAULT_SALDO_AWAL))
-      }
-
-      // Liabilities default to an empty list for new users.
-      const rawLiab = localStorage.getItem(STORAGE_KEYS.liabilities)
-      if (rawLiab) {
-        const parsed: Liability[] = JSON.parse(rawLiab)
-        setLiabilities(parsed.map((l) => ({ ...l, entity: l.entity ?? DEFAULT_ENTITY })))
-      } else {
-        localStorage.setItem(STORAGE_KEYS.liabilities, JSON.stringify([]))
-      }
-
-      // Receivables (piutang) default to an empty list for new users.
-      const rawRecv = localStorage.getItem(STORAGE_KEYS.receivables)
-      if (rawRecv) {
-        const parsed: Receivable[] = JSON.parse(rawRecv)
-        setReceivables(
-          parsed.map((r) => ({
-            ...r,
-            entity: r.entity ?? DEFAULT_ENTITY,
-            status: r.status ?? "unpaid",
-          })),
-        )
-      } else {
-        localStorage.setItem(STORAGE_KEYS.receivables, JSON.stringify(seedReceivables()))
-      }
-    } catch (e) {
-      console.log("[v0] Failed to load finance data:", e)
-    } finally {
       setHydrated(true)
     }
-  }, [])
 
-  const persistLiabilities = useCallback((next: Liability[]) => {
-    setLiabilities(next)
-    try {
-      localStorage.setItem(STORAGE_KEYS.liabilities, JSON.stringify(next))
-    } catch (e) {
-      console.log("[v0] Failed to persist liabilities:", e)
-    }
-  }, [])
+    supabase.auth.getSession().then(({ data }) => {
+      const uid = data.session?.user?.id ?? null
+      setUserId(uid)
+      if (uid) {
+        loadAll(uid)
+      } else {
+        setHydrated(true)
+      }
+    })
 
-  const persistReceivables = useCallback((next: Receivable[]) => {
-    setReceivables(next)
-    try {
-      localStorage.setItem(STORAGE_KEYS.receivables, JSON.stringify(next))
-    } catch (e) {
-      console.log("[v0] Failed to persist receivables:", e)
-    }
-  }, [])
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const uid = session?.user?.id ?? null
+      setUserId(uid)
+      if (uid) {
+        loadAll(uid)
+      } else {
+        setTransactions([])
+        setLiabilities([])
+        setReceivables([])
+        setSaldoAwalState(DEFAULT_SALDO_AWAL)
+        setSaldoAwalHutangState(DEFAULT_SALDO_AWAL)
+        setSaldoAwalPiutangState(DEFAULT_SALDO_AWAL)
+        setHydrated(true)
+      }
+    })
 
-  const persistTx = useCallback((next: Transaction[]) => {
-    setTransactions(next)
-    try {
-      localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(next))
-    } catch (e) {
-      console.log("[v0] Failed to persist transactions:", e)
+    return () => {
+      active = false
+      listener.subscription.unsubscribe()
     }
   }, [])
 
   const addTransaction = useCallback(
     (tx: Omit<Transaction, "id">) => {
-      setTransactions((prev) => {
-        const next = [{ ...tx, id: makeId() }, ...prev]
-        try {
-          localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist transactions:", e)
-        }
-        return next
-      })
+      const id = newId()
+      const entry: Transaction = { ...tx, id }
+      setTransactions((prev) => [entry, ...prev])
+      if (userId) {
+        supabase
+          .from("transactions")
+          .insert({
+            id,
+            user_id: userId,
+            type: tx.type,
+            title: tx.title,
+            amount: tx.amount,
+            category: tx.category,
+            date: tx.date,
+            entity: tx.entity,
+            payment_method: tx.paymentMethod ?? null,
+          })
+          .then()
+      }
     },
-    [],
+    [userId],
   )
 
-  const deleteTransaction = useCallback((id: string) => {
-    setTransactions((prev) => {
-      const next = prev.filter((t) => t.id !== id)
-      try {
-        localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(next))
-      } catch (e) {
-        console.log("[v0] Failed to persist transactions:", e)
+  const deleteTransaction = useCallback(
+    (id: string) => {
+      setTransactions((prev) => prev.filter((t) => t.id !== id))
+      if (userId) {
+        supabase.from("transactions").delete().eq("id", id).eq("user_id", userId).then()
       }
-      return next
-    })
-  }, [])
+    },
+    [userId],
+  )
 
-  const setSaldoAwal = useCallback((value: number) => {
-    setSaldoAwalState(value)
-    try {
-      localStorage.setItem(STORAGE_KEYS.saldoAwal, String(value))
-    } catch (e) {
-      console.log("[v0] Failed to persist saldo awal:", e)
-    }
-  }, [])
+  const setSaldoAwal = useCallback(
+    (value: number) => {
+      setSaldoAwalState(value)
+      if (userId) {
+        supabase.from("profiles").update({ saldo_awal: value }).eq("id", userId).then()
+      }
+    },
+    [userId],
+  )
 
-  const setSaldoAwalHutang = useCallback((value: number) => {
-    setSaldoAwalHutangState(value)
-    try {
-      localStorage.setItem(STORAGE_KEYS.saldoAwalHutang, String(value))
-    } catch (e) {
-      console.log("[v0] Failed to persist saldo awal hutang:", e)
-    }
-  }, [])
+  const setSaldoAwalHutang = useCallback(
+    (value: number) => {
+      setSaldoAwalHutangState(value)
+      if (userId) {
+        supabase.from("profiles").update({ saldo_awal_hutang: value }).eq("id", userId).then()
+      }
+    },
+    [userId],
+  )
 
-  const setSaldoAwalPiutang = useCallback((value: number) => {
-    setSaldoAwalPiutangState(value)
-    try {
-      localStorage.setItem(STORAGE_KEYS.saldoAwalPiutang, String(value))
-    } catch (e) {
-      console.log("[v0] Failed to persist saldo awal piutang:", e)
-    }
-  }, [])
+  const setSaldoAwalPiutang = useCallback(
+    (value: number) => {
+      setSaldoAwalPiutangState(value)
+      if (userId) {
+        supabase.from("profiles").update({ saldo_awal_piutang: value }).eq("id", userId).then()
+      }
+    },
+    [userId],
+  )
 
-  /** Add a new loan. Optionally record the disbursed amount as a cash inflow. */
   const addLiability = useCallback(
     (liab: Omit<Liability, "id" | "createdAt">, addToCash: boolean) => {
-      const entry: Liability = {
-        ...liab,
-        id: makeId(),
-        createdAt: new Date().toISOString().slice(0, 10),
+      const id = newId()
+      const createdAt = new Date().toISOString().slice(0, 10)
+      const entry: Liability = { ...liab, id, createdAt }
+      setLiabilities((prev) => [entry, ...prev])
+      if (userId) {
+        supabase
+          .from("liabilities")
+          .insert({
+            id,
+            user_id: userId,
+            name: liab.name,
+            category: liab.category,
+            principal: liab.principal,
+            monthly_payment: liab.monthlyPayment,
+            due_day: liab.dueDay,
+            entity: liab.entity,
+            tenor_months: liab.tenorMonths ?? null,
+            paid_installments: liab.paidInstallments ?? 0,
+            created_date: createdAt,
+          })
+          .then()
       }
-      setLiabilities((prev) => {
-        const next = [entry, ...prev]
-        try {
-          localStorage.setItem(STORAGE_KEYS.liabilities, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist liabilities:", e)
-        }
-        return next
-      })
       if (addToCash && liab.principal > 0) {
         addTransaction({
           type: "income",
           title: `Pencairan Hutang: ${liab.name}`,
           amount: Math.round(liab.principal),
           category: "Lainnya",
-          date: entry.createdAt,
+          date: createdAt,
           entity: entry.entity,
         })
       }
     },
-    [addTransaction],
+    [userId, addTransaction],
   )
 
   const deleteLiability = useCallback(
     (id: string) => {
-      setLiabilities((prev) => {
-        const next = prev.filter((l) => l.id !== id)
-        try {
-          localStorage.setItem(STORAGE_KEYS.liabilities, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist liabilities:", e)
-        }
-        return next
-      })
+      setLiabilities((prev) => prev.filter((l) => l.id !== id))
+      if (userId) {
+        supabase.from("liabilities").delete().eq("id", id).eq("user_id", userId).then()
+      }
     },
-    [],
+    [userId],
   )
 
-  /** Log an installment payment: deduct cash (expense tx) and reduce the loan principal. */
   const payLiability = useCallback(
     (id: string, amount: number, date: string) => {
       const amt = Math.max(0, Math.round(amount))
       if (amt <= 0) return
       let paidName = ""
-      let paidEntity: Liability["entity"] = DEFAULT_ENTITY
-      setLiabilities((prev) => {
-        const next = prev.map((l) => {
+      let paidEntity: Liability["entity"] = "pribadi"
+      let newPrincipal = 0
+      let newPaidInstallments = 0
+      setLiabilities((prev) =>
+        prev.map((l) => {
           if (l.id !== id) return l
           paidName = l.name
           paidEntity = l.entity
-          return {
-            ...l,
-            principal: Math.max(0, l.principal - amt),
-            paidInstallments: (l.paidInstallments ?? 0) + 1,
-          }
-        })
-        try {
-          localStorage.setItem(STORAGE_KEYS.liabilities, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist liabilities:", e)
-        }
-        return next
-      })
+          newPrincipal = Math.max(0, l.principal - amt)
+          newPaidInstallments = (l.paidInstallments ?? 0) + 1
+          return { ...l, principal: newPrincipal, paidInstallments: newPaidInstallments }
+        }),
+      )
+      if (userId) {
+        supabase
+          .from("liabilities")
+          .update({ principal: newPrincipal, paid_installments: newPaidInstallments })
+          .eq("id", id)
+          .eq("user_id", userId)
+          .then()
+      }
       addTransaction({
         type: "expense",
         title: `Bayar Cicilan: ${paidName || "Hutang"}`,
@@ -248,102 +265,120 @@ export function useFinance() {
         entity: paidEntity,
       })
     },
-    [addTransaction],
+    [userId, addTransaction],
   )
 
-  /** Record a credit / PayLater expense: it counts as spending but does not
-   *  reduce cash — instead it raises a liability. When `liabilityId` matches an
-   *  existing loan/card the balance is added there; otherwise a new PayLater
-   *  liability is auto-created. */
   const addCreditExpense = useCallback(
-    (
-      tx: Omit<Transaction, "id" | "type" | "paymentMethod">,
-      liabilityId: string | null,
-    ) => {
+    (tx: Omit<Transaction, "id" | "type" | "paymentMethod">, liabilityId: string | null) => {
       const amt = Math.max(0, Math.round(tx.amount))
       addTransaction({ ...tx, amount: amt, type: "expense", paymentMethod: "credit" })
 
       setLiabilities((prev) => {
-        let next: Liability[]
         const existing = liabilityId ? prev.find((l) => l.id === liabilityId) : undefined
         if (existing) {
-          next = prev.map((l) =>
-            l.id === existing.id ? { ...l, principal: l.principal + amt } : l,
-          )
-        } else {
-          const entry: Liability = {
-            id: makeId(),
-            name: `PayLater: ${tx.title}`,
-            category: "PayLater",
-            principal: amt,
-            monthlyPayment: 0,
-            dueDay: 5,
-            createdAt: new Date().toISOString().slice(0, 10),
-            entity: tx.entity,
+          const newPrincipal = existing.principal + amt
+          if (userId) {
+            supabase
+              .from("liabilities")
+              .update({ principal: newPrincipal })
+              .eq("id", existing.id)
+              .eq("user_id", userId)
+              .then()
           }
-          next = [entry, ...prev]
+          return prev.map((l) => (l.id === existing.id ? { ...l, principal: newPrincipal } : l))
         }
-        try {
-          localStorage.setItem(STORAGE_KEYS.liabilities, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist liabilities:", e)
+        const id = newId()
+        const createdAt = new Date().toISOString().slice(0, 10)
+        const entry: Liability = {
+          id,
+          name: `PayLater: ${tx.title}`,
+          category: "PayLater",
+          principal: amt,
+          monthlyPayment: 0,
+          dueDay: 5,
+          createdAt,
+          entity: tx.entity,
         }
-        return next
+        if (userId) {
+          supabase
+            .from("liabilities")
+            .insert({
+              id,
+              user_id: userId,
+              name: entry.name,
+              category: entry.category,
+              principal: entry.principal,
+              monthly_payment: entry.monthlyPayment,
+              due_day: entry.dueDay,
+              entity: entry.entity,
+              created_date: createdAt,
+              paid_installments: 0,
+            })
+            .then()
+        }
+        return [entry, ...prev]
       })
     },
-    [addTransaction],
+    [userId, addTransaction],
   )
 
   const addReceivable = useCallback(
     (recv: Omit<Receivable, "id">) => {
-      setReceivables((prev) => {
-        const next = [{ ...recv, id: makeId() }, ...prev]
-        try {
-          localStorage.setItem(STORAGE_KEYS.receivables, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist receivables:", e)
-        }
-        return next
-      })
+      const id = newId()
+      const entry: Receivable = { ...recv, id }
+      setReceivables((prev) => [entry, ...prev])
+      if (userId) {
+        supabase
+          .from("receivables")
+          .insert({
+            id,
+            user_id: userId,
+            customer: recv.customer,
+            amount: recv.amount,
+            date: recv.date,
+            due_date: recv.dueDate,
+            entity: recv.entity,
+            status: recv.status,
+            paid_date: recv.paidDate ?? null,
+          })
+          .then()
+      }
     },
-    [],
+    [userId],
   )
 
-  const deleteReceivable = useCallback((id: string) => {
-    setReceivables((prev) => {
-      const next = prev.filter((r) => r.id !== id)
-      try {
-        localStorage.setItem(STORAGE_KEYS.receivables, JSON.stringify(next))
-      } catch (e) {
-        console.log("[v0] Failed to persist receivables:", e)
+  const deleteReceivable = useCallback(
+    (id: string) => {
+      setReceivables((prev) => prev.filter((r) => r.id !== id))
+      if (userId) {
+        supabase.from("receivables").delete().eq("id", id).eq("user_id", userId).then()
       }
-      return next
-    })
-  }, [])
+    },
+    [userId],
+  )
 
-  /** Mark a receivable as paid and book the collected amount as a cash inflow.
-   *  The inflow is categorized "Lainnya" (not "Penjualan") so it does not double
-   *  count against UMKM turnover, which already recognizes the receivable. */
   const markReceivablePaid = useCallback(
     (id: string, date: string) => {
       let paidCustomer = ""
       let paidAmount = 0
-      let paidEntity: Receivable["entity"] = DEFAULT_ENTITY
-      setReceivables((prev) => {
-        const next = prev.map((r) => {
+      let paidEntity: Receivable["entity"] = "pribadi"
+      setReceivables((prev) =>
+        prev.map((r) => {
           if (r.id !== id || r.status === "paid") return r
           paidCustomer = r.customer
           paidAmount = r.amount
           paidEntity = r.entity
           return { ...r, status: "paid" as const, paidDate: date }
-        })
-        try {
-          localStorage.setItem(STORAGE_KEYS.receivables, JSON.stringify(next))
-        } catch (e) {
-          console.log("[v0] Failed to persist receivables:", e)
-        }
-        return next
-      })
+        }),
+      )
+      if (userId) {
+        supabase
+          .from("receivables")
+          .update({ status: "paid", paid_date: date })
+          .eq("id", id)
+          .eq("user_id", userId)
+          .then()
+      }
       if (paidAmount > 0) {
         addTransaction({
           type: "income",
@@ -355,18 +390,22 @@ export function useFinance() {
         })
       }
     },
-    [addTransaction],
+    [userId, addTransaction],
   )
 
   const resetData = useCallback(() => {
-    const seeded = seedTransactions()
-    persistTx(seeded)
-    setSaldoAwal(DEFAULT_SALDO_AWAL)
-    setSaldoAwalHutang(DEFAULT_SALDO_AWAL)
-    setSaldoAwalPiutang(DEFAULT_SALDO_AWAL)
-    persistLiabilities([])
-    persistReceivables(seedReceivables())
-  }, [persistTx, setSaldoAwal, setSaldoAwalHutang, setSaldoAwalPiutang, persistLiabilities, persistReceivables])
+    setTransactions([])
+    setLiabilities([])
+    setReceivables([])
+    setSaldoAwal(0)
+    setSaldoAwalHutang(0)
+    setSaldoAwalPiutang(0)
+    if (userId) {
+      supabase.from("transactions").delete().eq("user_id", userId).then()
+      supabase.from("liabilities").delete().eq("user_id", userId).then()
+      supabase.from("receivables").delete().eq("user_id", userId).then()
+    }
+  }, [userId, setSaldoAwal, setSaldoAwalHutang, setSaldoAwalPiutang])
 
   return {
     hydrated,
