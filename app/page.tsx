@@ -190,12 +190,17 @@ function AppShell() {
             <HelpCircle className="size-4" />
           </Button>
           <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Reset data contoh"
-              title="Reset data contoh"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Hapus semua data"
+              title="Hapus semua data"
               onClick={() => {
-                if (confirm("Reset semua data ke contoh awal?")) finance.resetData()
+                if (
+                  confirm(
+                    "Hapus SEMUA data transaksi, harta, hutang, dan piutang Anda secara permanen? Tindakan ini tidak bisa dibatalkan.",
+                  )
+                )
+                  finance.resetData()
               }}
             >
               <RotateCcw className="size-4" />
