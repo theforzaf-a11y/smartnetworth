@@ -1,23 +1,66 @@
 "use client"
 
 import { useState } from "react"
-import { Lock, PiggyBank, ArrowRight } from "lucide-react"
+import { Lock, Mail, PiggyBank, ArrowRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useAccess } from "@/lib/access-context"
+import { supabase } from "@/lib/supabase"
+
+type Mode = "login" | "register"
 
 export function PasswordGate() {
-  const { unlock } = useAccess()
-  const [value, setValue] = useState("")
-  const [error, setError] = useState(false)
+  const [mode, setMode] = useState<Mode>("login")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [info, setInfo] = useState("")
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (unlock(value)) {
-      setError(false)
-    } else {
-      setError(true)
-      setValue("")
+    setError("")
+    setInfo("")
+    if (!email.trim() || !password) {
+      setError("Email dan password wajib diisi.")
+      return
     }
+    setLoading(true)
+    if (mode === "login") {
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (err) {
+        setError(err.message === "Invalid login credentials" ? "Email atau password salah." : err.message)
+      }
+    } else {
+      const { error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      })
+      if (err) {
+        setError(err.message)
+      } else {
+        setInfo("Akun berhasil dibuat! Silakan masuk.")
+        setMode("login")
+        setPassword("")
+      }
+    }
+    setLoading(false)
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      setError('Isi email kamu dulu, lalu tap "Lupa password?" lagi.')
+      return
+    }
+    setError("")
+    setLoading(true)
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined,
+    })
+    setLoading(false)
+    if (err) setError(err.message)
+    else setInfo("Link reset password sudah dikirim ke email kamu.")
   }
 
   return (
@@ -29,47 +72,101 @@ export function PasswordGate() {
           </span>
           <h1 className="text-xl font-bold tracking-tight">SmartNetWorth</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Aplikasi terkunci. Masukkan kode akses untuk melanjutkan.
+            {mode === "login" ? "Masuk ke akun kamu untuk melanjutkan." : "Buat akun baru untuk mulai mencatat."}
           </p>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-border bg-card p-6 shadow-sm"
-        >
-          <label htmlFor="passcode" className="mb-2 block text-sm font-medium">
-            Kode Akses
+        <div className="mb-4 flex gap-1 rounded-xl bg-muted p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMode("login")
+              setError("")
+              setInfo("")
+            }}
+            className={[
+              "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+              mode === "login" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+            ].join(" ")}
+          >
+            Masuk
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode("register")
+              setError("")
+              setInfo("")
+            }}
+            className={[
+              "flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+              mode === "register" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground",
+            ].join(" ")}
+          >
+            Daftar
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <label htmlFor="email" className="mb-2 block text-sm font-medium">
+            Email
+          </label>
+          <div className="relative mb-4">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nama@email.com"
+              className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+            />
+          </div>
+
+          <label htmlFor="password" className="mb-2 block text-sm font-medium">
+            Password
           </label>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
-              id="passcode"
+              id="password"
               type="password"
-              autoFocus
-              autoComplete="off"
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value)
-                if (error) setError(false)
-              }}
-              placeholder="Masukkan kode akses"
-              aria-invalid={error}
-              className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20"
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={mode === "register" ? "Minimal 6 karakter" : "Masukkan password"}
+              className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
             />
           </div>
 
-          {error ? (
-            <p className="mt-2 text-xs text-destructive">Kode akses salah. Silakan coba lagi.</p>
+          {mode === "login" ? (
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="mt-2 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              Lupa password?
+            </button>
           ) : null}
 
-          <Button type="submit" size="lg" className="mt-4 w-full">
-            Buka Aplikasi
-            <ArrowRight className="size-4" />
+          {error ? <p className="mt-3 text-xs text-destructive">{error}</p> : null}
+          {info ? <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">{info}</p> : null}
+
+          <Button type="submit" size="lg" className="mt-4 w-full" disabled={loading}>
+            {loading ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <>
+                {mode === "login" ? "Masuk" : "Daftar"}
+                <ArrowRight className="size-4" />
+              </>
+            )}
           </Button>
         </form>
 
         <p className="mt-4 text-center text-[11px] text-muted-foreground">
-          Hubungi Admin SmartNetWorth jika Anda lupa kode akses.
+          {mode === "login" ? 'Belum punya akun? Tap "Daftar" di atas.' : 'Sudah punya akun? Tap "Masuk" di atas.'}
         </p>
       </div>
     </main>
