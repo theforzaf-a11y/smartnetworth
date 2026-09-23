@@ -13,6 +13,8 @@ interface Profile {
   max_scan_quota: number
   voice_quota: number
   max_voice_quota: number
+  trial_ends_at: string | null
+  is_blocked: boolean
 }
 
 interface AccessContextValue {
@@ -23,6 +25,9 @@ interface AccessContextValue {
   maxScanQuota: number
   voiceQuota: number
   maxVoiceQuota: number
+  trialEndsAt: string | null
+  isBlocked: boolean
+  trialExpired: boolean
   lock: () => void
   consumeScan: () => boolean
   consumeVoice: () => boolean
@@ -42,11 +47,13 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [maxScanQuota, setMaxScanQuota] = useState(DEFAULT_MAX_SCAN_QUOTA)
   const [voiceQuota, setVoiceQuotaState] = useState(DEFAULT_MAX_VOICE_QUOTA)
   const [maxVoiceQuota, setMaxVoiceQuota] = useState(DEFAULT_MAX_VOICE_QUOTA)
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
+  const [isBlocked, setIsBlocked] = useState(false)
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("scan_quota, max_scan_quota, voice_quota, max_voice_quota")
+      .select("scan_quota, max_scan_quota, voice_quota, max_voice_quota, trial_ends_at, is_blocked")
       .eq("id", userId)
       .maybeSingle<Profile>()
 
@@ -55,6 +62,8 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       setMaxScanQuota(data.max_scan_quota)
       setVoiceQuotaState(data.voice_quota)
       setMaxVoiceQuota(data.max_voice_quota)
+      setTrialEndsAt(data.trial_ends_at)
+      setIsBlocked(data.is_blocked)
     }
   }, [])
 
@@ -149,6 +158,9 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     }
   }, [maxVoiceQuota, user])
 
+  const trialExpired =
+    isBlocked || (trialEndsAt !== null && new Date(trialEndsAt).getTime() < Date.now())
+
   return (
     <AccessContext.Provider
       value={{
@@ -159,6 +171,9 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         maxScanQuota,
         voiceQuota,
         maxVoiceQuota,
+        trialEndsAt,
+        isBlocked,
+        trialExpired,
         lock,
         consumeScan,
         consumeVoice,
