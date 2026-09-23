@@ -1,9 +1,12 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
-import { MASTER_ADMIN_PASSWORD, MAX_SCAN_QUOTA, MAX_VOICE_QUOTA } from "@/lib/finance"
+
+const MASTER_ADMIN_PASSWORD = "ADMIN-SMART2026"
+const DEFAULT_MAX_SCAN_QUOTA = 5
+const DEFAULT_MAX_VOICE_QUOTA = 3
 
 interface Profile {
   scan_quota: number
@@ -23,42 +26,50 @@ interface AccessContextValue {
   lock: () => void
   consumeScan: () => boolean
   consumeVoice: () => boolean
-  verifyMaster: (input: string) => boolean
-  setScanQuota: (next: number) => void
+  verifyMaster: (password: string) => boolean
+  setScanQuota: (value: number) => void
   resetScanQuota: () => void
-  setVoiceQuota: (next: number) => void
+  setVoiceQuota: (value: number) => void
   resetVoiceQuota: () => void
 }
 
 const AccessContext = createContext<AccessContextValue | null>(null)
 
-const DEFAULT_PROFILE: Profile = {
-  scan_quota: MAX_SCAN_QUOTA,
-  max_scan_quota: MAX_SCAN_QUOTA,
-  voice_quota: MAX_VOICE_QUOTA,
-  max_voice_quota: MAX_VOICE_QUOTA,
-}
-
-export function AccessProvider({ children }: { children: ReactNode }) {
+export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false)
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE)
+  const [scanQuota, setScanQuotaState] = useState(DEFAULT_MAX_SCAN_QUOTA)
+  const [maxScanQuota, setMaxScanQuota] = useState(DEFAULT_MAX_SCAN_QUOTA)
+  const [voiceQuota, setVoiceQuotaState] = useState(DEFAULT_MAX_VOICE_QUOTA)
+  const [maxVoiceQuota, setMaxVoiceQuota] = useState(DEFAULT_MAX_VOICE_QUOTA)
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
       .select("scan_quota, max_scan_quota, voice_quota, max_voice_quota")
       .eq("id", userId)
-      .single()
-    if (data) setProfile(data as Profile)
+      .maybeSingle<Profile>()
+
+    if (data) {
+      setScanQuotaState(data.scan_quota)
+      setMaxScanQuota(data.max_scan_quota)
+      setVoiceQuotaState(data.voice_quota)
+      setMaxVoiceQuota(data.max_voice_quota)
+    }
   }, [])
 
   useEffect(() => {
+    let active = true
+
     supabase.auth.getSession().then(({ data }) => {
+      if (!active) return
       const sessionUser = data.session?.user ?? null
       setUser(sessionUser)
-      if (sessionUser) loadProfile(sessionUser.id)
-      setHydrated(true)
+      if (sessionUser) {
+        loadProfile(sessionUser.id).finally(() => setHydrated(true))
+      } else {
+        setHydrated(true)
+      }
     })
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -66,12 +77,14 @@ export function AccessProvider({ children }: { children: ReactNode }) {
       setUser(sessionUser)
       if (sessionUser) {
         loadProfile(sessionUser.id)
-      } else {
-        setProfile(DEFAULT_PROFILE)
       }
+      setHydrated(true)
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      active = false
+      listener.subscription.unsubscribe()
+    }
   }, [loadProfile])
 
   const lock = useCallback(() => {
@@ -79,60 +92,62 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const consumeScan = useCallback(() => {
-    if (!user) return false
-    let consumed = false
-    setProfile((prev) => {
-      if (prev.scan_quota <= 0) return prev
-      consumed = true
-      const next = prev.scan_quota - 1
+    if (scanQuota <= 0) return false
+    const next = scanQuota - 1
+    setScanQuotaState(next)
+    if (user) {
       supabase.from("profiles").update({ scan_quota: next }).eq("id", user.id).then()
-      return { ...prev, scan_quota: next }
-    })
-    return consumed
-  }, [user])
+    }
+    return true
+  }, [scanQuota, user])
 
   const consumeVoice = useCallback(() => {
-    if (!user) return false
-    let consumed = false
-    setProfile((prev) => {
-      if (prev.voice_quota <= 0) return prev
-      consumed = true
-      const next = prev.voice_quota - 1
+    if (voiceQuota <= 0) return false
+    const next = voiceQuota - 1
+    setVoiceQuotaState(next)
+    if (user) {
       supabase.from("profiles").update({ voice_quota: next }).eq("id", user.id).then()
-      return { ...prev, voice_quota: next }
-    })
-    return consumed
-  }, [user])
+    }
+    return true
+  }, [voiceQuota, user])
 
-  const verifyMaster = useCallback((input: string) => input === MASTER_ADMIN_PASSWORD, [])
+  const verifyMaster = useCallback((password: string) => {
+    return password === MASTER_ADMIN_PASSWORD
+  }, [])
 
   const setScanQuota = useCallback(
-    (next: number) => {
-      if (!user) return
-      const clamped = Math.min(Math.max(Math.round(next), 0), profile.max_scan_quota)
-      setProfile((prev) => ({ ...prev, scan_quota: clamped }))
-      supabase.from("profiles").update({ scan_quota: clamped }).eq("id", user.id).then()
+    (value: number) => {
+      setScanQuotaState(value)
+      if (user) {
+        supabase.from("profiles").update({ scan_quota: value }).eq("id", user.id).then()
+      }
     },
-    [user, profile.max_scan_quota],
+    [user],
   )
 
   const resetScanQuota = useCallback(() => {
-    setScanQuota(profile.max_scan_quota)
-  }, [setScanQuota, profile.max_scan_quota])
+    setScanQuotaState(maxScanQuota)
+    if (user) {
+      supabase.from("profiles").update({ scan_quota: maxScanQuota }).eq("id", user.id).then()
+    }
+  }, [maxScanQuota, user])
 
   const setVoiceQuota = useCallback(
-    (next: number) => {
-      if (!user) return
-      const clamped = Math.min(Math.max(Math.round(next), 0), profile.max_voice_quota)
-      setProfile((prev) => ({ ...prev, voice_quota: clamped }))
-      supabase.from("profiles").update({ voice_quota: clamped }).eq("id", user.id).then()
+    (value: number) => {
+      setVoiceQuotaState(value)
+      if (user) {
+        supabase.from("profiles").update({ voice_quota: value }).eq("id", user.id).then()
+      }
     },
-    [user, profile.max_voice_quota],
+    [user],
   )
 
   const resetVoiceQuota = useCallback(() => {
-    setVoiceQuota(profile.max_voice_quota)
-  }, [setVoiceQuota, profile.max_voice_quota])
+    setVoiceQuotaState(maxVoiceQuota)
+    if (user) {
+      supabase.from("profiles").update({ voice_quota: maxVoiceQuota }).eq("id", user.id).then()
+    }
+  }, [maxVoiceQuota, user])
 
   return (
     <AccessContext.Provider
@@ -140,10 +155,10 @@ export function AccessProvider({ children }: { children: ReactNode }) {
         hydrated,
         unlocked: !!user,
         user,
-        scanQuota: profile.scan_quota,
-        maxScanQuota: profile.max_scan_quota,
-        voiceQuota: profile.voice_quota,
-        maxVoiceQuota: profile.max_voice_quota,
+        scanQuota,
+        maxScanQuota,
+        voiceQuota,
+        maxVoiceQuota,
         lock,
         consumeScan,
         consumeVoice,
@@ -161,6 +176,6 @@ export function AccessProvider({ children }: { children: ReactNode }) {
 
 export function useAccess() {
   const ctx = useContext(AccessContext)
-  if (!ctx) throw new Error("useAccess must be used within an AccessProvider")
+  if (!ctx) throw new Error("useAccess must be used within AccessProvider")
   return ctx
 }
