@@ -453,3 +453,19 @@ export function suggestCategory(title: string, categories: readonly string[]): s
   }
   return null
 }
+
+// Filter list transaksi/piutang/hutang berdasarkan rentang tanggal (untuk fitur filter di Ringkasan/Piutang/Hutang).
+export function filterByDateRange<T>(
+  items: T[],
+  getDate: (item: T) => string,
+  from: string | null,
+  to: string | null,
+): T[] {
+  if (!from && !to) return items
+  return items.filter((item) => {
+    const d = getDate(item).slice(0, 10)
+    if (from && d < from) return false
+    if (to && d > to) return false
+    return true
+  })
+}
