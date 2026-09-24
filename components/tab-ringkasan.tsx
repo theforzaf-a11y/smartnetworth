@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Wallet,
   ArrowDownCircle,
@@ -27,9 +27,11 @@ import {
   YAxis,
 } from "recharts"
 import { Card, CardTitle, StatCard } from "@/components/finance-ui"
+import { DateRangeFilter, type DateRangeValue } from "@/components/date-range-filter"
 import {
   EXPENSE_CATEGORIES,
   expenseByCategoryComparison,
+  filterByDateRange,
   formatPct,
   formatRp,
   getReferenceMonths,
@@ -85,6 +87,8 @@ export function TabRingkasan({
   onPayNow,
 }: TabRingkasanProps) {
   const [filter, setFilter] = useState("Semua")
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "semua" })
+  const [visibleCount, setVisibleCount] = useState(15)
   const { current, previous, threeMonths } = getReferenceMonths()
 
   const stats = useMemo(() => {
@@ -124,13 +128,17 @@ export function TabRingkasan({
   const filterOptions = ["Semua", "Pemasukan", "Pengeluaran", "Harta", ...EXPENSE_CATEGORIES]
 
   const filtered = useMemo(() => {
-    const list = [...transactions].sort((a, b) => b.date.localeCompare(a.date))
-    if (filter === "Semua") return list
-    if (filter === "Pemasukan") return list.filter((t) => t.type === "income")
-    if (filter === "Pengeluaran") return list.filter((t) => t.type === "expense")
-    if (filter === "Harta") return list.filter((t) => t.type === "asset")
-    return list.filter((t) => t.category === filter)
-  }, [transactions, filter])
+    let list = [...transactions].sort((a, b) => b.date.localeCompare(a.date))
+    if (filter === "Pemasukan") list = list.filter((t) => t.type === "income")
+    else if (filter === "Pengeluaran") list = list.filter((t) => t.type === "expense")
+    else if (filter === "Harta") list = list.filter((t) => t.type === "asset")
+    else if (filter !== "Semua") list = list.filter((t) => t.category === filter)
+    return filterByDateRange(list, (t) => t.date, dateRange.from, dateRange.to)
+  }, [transactions, filter, dateRange])
+
+  useEffect(() => {
+    setVisibleCount(15)
+  }, [filter, dateRange])
 
   const curLabel = MONTH_NAMES_ID[Number.parseInt(current.slice(5, 7), 10) - 1]
   const prevLabel = MONTH_NAMES_ID[Number.parseInt(previous.slice(5, 7), 10) - 1]
@@ -304,6 +312,10 @@ export function TabRingkasan({
           </select>
         </div>
 
+        <div className="mb-3">
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        </div>
+
         {/* Combined expense metric: cash + credit/PayLater */}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200/70 bg-rose-500/[0.04] px-3 py-2.5 dark:border-rose-500/25">
           <div className="min-w-0">
@@ -325,7 +337,7 @@ export function TabRingkasan({
               Tidak ada transaksi untuk filter ini.
             </p>
           ) : (
-            filtered.slice(0, 40).map((t) => (
+            filtered.slice(0, visibleCount).map((t) => (
               <div
                 key={t.id}
                 className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/60"
@@ -378,6 +390,14 @@ export function TabRingkasan({
             ))
           )}
         </div>
+
+        {filtered.length > visibleCount ? (
+          <div className="mt-3 flex justify-center">
+            <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 15)}>
+              Tampilkan Lebih Banyak
+            </Button>
+          </div>
+        ) : null}
       </Card>
     </div>
   )
