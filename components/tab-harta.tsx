@@ -7,22 +7,39 @@ import { Button } from "@/components/ui/button"
 import { BreakdownRow, Card, CardTitle, CHART_COLORS } from "@/components/finance-ui"
 import {
   assetDistribution,
+  ENTITY_LABEL,
+  type Entity,
   formatRp,
   netCashflow,
   totalAssetTransfers,
   totalLiquidAssets,
   type Transaction,
 } from "@/lib/finance"
+import { EntitySelector } from "@/components/entity-toggle"
+
+interface SaldoAwalByEntity {
+  pribadi: number
+  bisnis: number
+}
 
 interface TabHartaProps {
   transactions: Transaction[]
   saldoAwal: number
-  onSaveSaldo: (value: number) => void
+  saldoAwalByEntity: SaldoAwalByEntity
+  onSaveSaldo: (entity: Entity, value: number) => void
+  defaultEntity?: Entity
 }
 
-export function TabHarta({ transactions, saldoAwal, onSaveSaldo }: TabHartaProps) {
+export function TabHarta({
+  transactions,
+  saldoAwal,
+  saldoAwalByEntity,
+  onSaveSaldo,
+  defaultEntity = "pribadi",
+}: TabHartaProps) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(String(saldoAwal))
+  const [entity, setEntity] = useState<Entity>(defaultEntity)
+  const [draft, setDraft] = useState(String(saldoAwalByEntity[defaultEntity] || ""))
 
   const total = useMemo(
     () => totalLiquidAssets(transactions, saldoAwal),
@@ -35,9 +52,20 @@ export function TabHarta({ transactions, saldoAwal, onSaveSaldo }: TabHartaProps
     [transactions, saldoAwal],
   )
 
+  function startEditing() {
+    setEntity(defaultEntity)
+    setDraft(String(saldoAwalByEntity[defaultEntity] || ""))
+    setEditing(true)
+  }
+
+  function handleEntityChange(next: Entity) {
+    setEntity(next)
+    setDraft(String(saldoAwalByEntity[next] || ""))
+  }
+
   function commit() {
     const v = Math.max(0, Math.round(Number(draft) || 0))
-    onSaveSaldo(v)
+    onSaveSaldo(entity, v)
     setEditing(false)
   }
 
@@ -78,47 +106,53 @@ export function TabHarta({ transactions, saldoAwal, onSaveSaldo }: TabHartaProps
       {/* Editable saldo awal */}
       <Card>
         <CardTitle>Saldo Awal Harta / Kas Bulan Lalu</CardTitle>
-        <div className="mt-3 flex items-center gap-2">
-          {editing ? (
-            <>
-              <div className="relative flex-1">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                  Rp
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  value={draft}
-                  autoFocus
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.nativeEvent.isComposing) commit()
-                  }}
-                  className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
-                />
+
+        {editing ? (
+          <div className="mt-3 space-y-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Entitas</label>
+              <EntitySelector value={entity} onChange={handleEntityChange} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Saldo Awal Harta — {ENTITY_LABEL[entity]} (Rp)
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    Rp
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={draft}
+                    autoFocus
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing) commit()
+                    }}
+                    className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+                  />
+                </div>
+                <Button size="lg" onClick={commit}>
+                  <Check className="size-4" />
+                  Simpan
+                </Button>
               </div>
-              <Button size="lg" onClick={commit}>
-                <Check className="size-4" />
-                Simpan
-              </Button>
-            </>
-          ) : (
-            <>
-              <p className="flex-1 text-2xl font-bold">{formatRp(saldoAwal)}</p>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  setDraft(String(saldoAwal))
-                  setEditing(true)
-                }}
-              >
-                <Pencil className="size-4" />
-                Ubah
-              </Button>
-            </>
-          )}
-        </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+              Batal
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center gap-2">
+            <p className="flex-1 text-2xl font-bold">{formatRp(saldoAwal)}</p>
+            <Button variant="outline" size="lg" onClick={startEditing}>
+              <Pencil className="size-4" />
+              Ubah
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Donut chart */}
