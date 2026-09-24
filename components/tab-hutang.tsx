@@ -402,7 +402,12 @@ function AddLoanForm({
           <input
             id="liab-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value
+              setName(v)
+              const suggested = suggestCategory(v, LIABILITY_CATEGORIES)
+              if (suggested) setCategory(suggested)
+            }}
             placeholder="cth. KPR Bank Mandiri"
             className={inputClass}
             required
