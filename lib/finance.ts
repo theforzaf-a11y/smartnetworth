@@ -46,6 +46,7 @@ export const LIABILITY_CATEGORIES = [
   "Hutang Dagang",
   "Hutang Personal",
   "Hutang Lembaga Keuangan Non-Bank",
+  "Hutang Kartu Kredit/Credit Card",
   "PayLater",
   "Lainnya",
 ] as const
@@ -431,6 +432,13 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   Bonus: ["bonus", "thr", "insentif"],
   Freelance: ["freelance", "project", "proyek", "klien", "honor", "jasa"],
   Investasi: ["dividen", "bunga", "profit", "cuan", "saham"],
+  // Liability (Hutang)
+  "Hutang Bank": ["bank", "kpr", "kur", "kta", "pinjaman bank"],
+  "Hutang Dagang": ["barang", "stock", "stok", "supplier", "dagang", "beli barang", "restock", "bahan baku", "modal usaha"],
+  "Hutang Personal": ["pinjam teman", "pinjam saudara", "pinjam pribadi", "utang teman", "pinjaman pribadi", "pinjam keluarga"],
+  "Hutang Lembaga Keuangan Non-Bank": ["leasing", "fif", "adira", "kredit motor", "kredit mobil", "multifinance", "koperasi simpan pinjam", "pegadaian"],
+  "Hutang Kartu Kredit/Credit Card": ["kartu kredit", "credit card", "cicilan kartu"],
+  PayLater: ["paylater", "pay later", "shopee paylater", "gopaylater", "akulaku", "kredivo", "spaylater"],
 }
 
 export function suggestCategory(title: string, categories: readonly string[]): string | null {
