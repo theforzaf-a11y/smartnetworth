@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { BreakdownRow, Card, CardTitle, CHART_COLORS } from "@/components/finance-ui"
 import {
   dueStatus,
+  ENTITY_LABEL,
   type Entity,
   formatRp,
   liabilityDistribution,
@@ -34,10 +35,16 @@ import {
 } from "@/lib/finance"
 import { EntitySelector } from "@/components/entity-toggle"
 
+interface SaldoAwalByEntity {
+  pribadi: number
+  bisnis: number
+}
+
 interface TabHutangProps {
   transactions: Transaction[]
   saldoAwalHutang: number
-  onSaveSaldo: (value: number) => void
+  saldoAwalHutangByEntity: SaldoAwalByEntity
+  onSaveSaldo: (entity: Entity, value: number) => void
   liabilities: Liability[]
   onAdd: (liab: Omit<Liability, "id" | "createdAt">, addToCash: boolean) => void
   onDelete: (id: string) => void
@@ -48,6 +55,7 @@ interface TabHutangProps {
 export function TabHutang({
   transactions,
   saldoAwalHutang,
+  saldoAwalHutangByEntity,
   onSaveSaldo,
   liabilities,
   onAdd,
@@ -101,10 +109,11 @@ export function TabHutang({
 
         {editingSaldo ? (
           <SaldoAwalEditor
-            initial={saldoAwalHutang}
+            byEntity={saldoAwalHutangByEntity}
+            defaultEntity={defaultEntity}
             onCancel={() => setEditingSaldo(false)}
-            onSave={(v) => {
-              onSaveSaldo(v)
+            onSave={(entity, v) => {
+              onSaveSaldo(entity, v)
               setEditingSaldo(false)
             }}
           />
@@ -538,19 +547,27 @@ function AddLoanForm({
 }
 
 function SaldoAwalEditor({
-  initial,
+  byEntity,
+  defaultEntity,
   onSave,
   onCancel,
 }: {
-  initial: number
-  onSave: (value: number) => void
+  byEntity: SaldoAwalByEntity
+  defaultEntity: Entity
+  onSave: (entity: Entity, value: number) => void
   onCancel: () => void
 }) {
-  const [value, setValue] = useState(String(initial || ""))
+  const [entity, setEntity] = useState<Entity>(defaultEntity)
+  const [value, setValue] = useState(String(byEntity[defaultEntity] || ""))
+
+  function handleEntityChange(next: Entity) {
+    setEntity(next)
+    setValue(String(byEntity[next] || ""))
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onSave(Math.max(0, Math.round(Number(value) || 0)))
+    onSave(entity, Math.max(0, Math.round(Number(value) || 0)))
   }
 
   return (
@@ -558,22 +575,25 @@ function SaldoAwalEditor({
       onSubmit={handleSubmit}
       className="mb-3 rounded-lg border border-border/70 bg-muted/40 p-3"
     >
-      <label htmlFor="saldo-awal-hutang" className="mb-1.5 block text-sm font-medium">
-        Saldo Awal Hutang (Rp)
+      <label className="mb-1.5 block text-sm font-medium">Entitas</label>
+      <EntitySelector value={entity} onChange={handleEntityChange} />
+
+      <label htmlFor="saldo-awal-hutang" className="mb-1.5 mt-3 block text-sm font-medium">
+        Saldo Awal Hutang — {ENTITY_LABEL[entity]} (Rp)
       </label>
       <input
         id="saldo-awal-hutang"
         type="number"
         inputMode="numeric"
         min="0"
-        autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="0"
         className={inputClass}
       />
       <p className="mt-1 text-xs text-muted-foreground">
-        Titik awal saldo hutang sebelum transaksi periode ini dihitung.
+        Titik awal saldo hutang {ENTITY_LABEL[entity].toLowerCase()} sebelum transaksi periode ini
+        dihitung.
       </p>
       <div className="mt-3 flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" className="flex-1" onClick={onCancel}>
