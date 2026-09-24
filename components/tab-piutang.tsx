@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   HandCoins,
   Plus,
@@ -19,11 +19,13 @@ import {
   daysUntilDate,
   ENTITY_LABEL,
   type Entity,
+  filterByDateRange,
   formatRp,
   type Receivable,
   receivableTotals,
 } from "@/lib/finance"
 import { EntitySelector } from "@/components/entity-toggle"
+import { DateRangeFilter, type DateRangeValue } from "@/components/date-range-filter"
 
 interface SaldoAwalByEntity {
   pribadi: number
@@ -53,6 +55,8 @@ export function TabPiutang({
 }: TabPiutangProps) {
   const [showForm, setShowForm] = useState(false)
   const [editingSaldo, setEditingSaldo] = useState(false)
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "semua" })
+  const [visibleCount, setVisibleCount] = useState(15)
   const totals = useMemo(() => receivableTotals(receivables), [receivables])
 
   // Rollover: opening balance + new receivables booked − amounts collected.
@@ -69,6 +73,15 @@ export function TabPiutang({
       }),
     [receivables],
   )
+
+  const filteredByDate = useMemo(
+    () => filterByDateRange(sorted, (r) => r.date, dateRange.from, dateRange.to),
+    [sorted, dateRange],
+  )
+
+  useEffect(() => {
+    setVisibleCount(15)
+  }, [dateRange])
 
   return (
     <div className="space-y-5">
@@ -164,11 +177,29 @@ export function TabPiutang({
             </p>
           </div>
         ) : (
-          <div className="mt-2 space-y-3">
-            {sorted.map((r) => (
-              <ReceivableRow key={r.id} receivable={r} onDelete={onDelete} onMarkPaid={onMarkPaid} />
-            ))}
-          </div>
+          <>
+            <div className="mb-3">
+              <DateRangeFilter value={dateRange} onChange={setDateRange} />
+            </div>
+            {filteredByDate.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Tidak ada piutang pada rentang tanggal ini.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-3">
+                {filteredByDate.slice(0, visibleCount).map((r) => (
+                  <ReceivableRow key={r.id} receivable={r} onDelete={onDelete} onMarkPaid={onMarkPaid} />
+                ))}
+              </div>
+            )}
+            {filteredByDate.length > visibleCount ? (
+              <div className="mt-3 flex justify-center">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 15)}>
+                  Tampilkan Lebih Banyak
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </Card>
 
