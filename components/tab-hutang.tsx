@@ -23,6 +23,7 @@ import {
   liabilityDistribution,
   LIABILITY_CATEGORIES,
   remainingTenor,
+  suggestCategory,
   totalDebtIncurred,
   totalDebtPayments,
   totalLiabilities,
