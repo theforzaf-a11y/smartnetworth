@@ -278,7 +278,11 @@ function AppShell() {
         ) : tab === "ringkasan" ? (
           <TabRingkasan
             transactions={filterTxByEntity(finance.transactions, entityFilter)}
-            saldoAwal={finance.saldoAwal}
+            saldoAwal={
+              entityFilter === "semua"
+                ? finance.saldoAwal.pribadi + finance.saldoAwal.bisnis
+                : finance.saldoAwal[entityFilter]
+            }
             liabilities={filterLiabByEntity(finance.liabilities, entityFilter)}
             receivables={filterRecvByEntity(finance.receivables, entityFilter)}
             onDelete={finance.deleteTransaction}
@@ -344,8 +348,14 @@ function AppShell() {
         ) : tab === "harta" ? (
           <TabHarta
             transactions={filterTxByEntity(finance.transactions, entityFilter)}
-            saldoAwal={finance.saldoAwal}
+            saldoAwal={
+              entityFilter === "semua"
+                ? finance.saldoAwal.pribadi + finance.saldoAwal.bisnis
+                : finance.saldoAwal[entityFilter]
+            }
+            saldoAwalByEntity={finance.saldoAwal}
             onSaveSaldo={finance.setSaldoAwal}
+            defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
         ) : tab === "hutang" ? (
           <TabHutang
