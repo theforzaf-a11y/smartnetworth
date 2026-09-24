@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { DEFAULT_SALDO_AWAL, type Entity, type Liability, type Receivable, type Transaction } from "@/lib/finance"
+import { type Entity, type Liability, type Receivable, type Transaction } from "@/lib/finance"
 import { supabase } from "@/lib/supabase"
 
 function newId() {
@@ -59,7 +59,7 @@ const EMPTY_SALDO: SaldoAwalByEntity = { pribadi: 0, bisnis: 0 }
 export function useFinance() {
   const [userId, setUserId] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [saldoAwal, setSaldoAwalState] = useState<number>(DEFAULT_SALDO_AWAL)
+  const [saldoAwal, setSaldoAwalState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [saldoAwalHutang, setSaldoAwalHutangState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [saldoAwalPiutang, setSaldoAwalPiutangState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [liabilities, setLiabilities] = useState<Liability[]>([])
@@ -77,7 +77,7 @@ export function useFinance() {
         supabase
           .from("profiles")
           .select(
-            "saldo_awal, saldo_awal_hutang_pribadi, saldo_awal_hutang_bisnis, saldo_awal_piutang_pribadi, saldo_awal_piutang_bisnis",
+            "saldo_awal_pribadi, saldo_awal_bisnis, saldo_awal_hutang_pribadi, saldo_awal_hutang_bisnis, saldo_awal_piutang_pribadi, saldo_awal_piutang_bisnis",
           )
           .eq("id", uid)
           .maybeSingle(),
@@ -87,7 +87,10 @@ export function useFinance() {
       setLiabilities((liabRes.data ?? []).map(rowToLiability))
       setReceivables((recvRes.data ?? []).map(rowToReceivable))
       if (profileRes.data) {
-        setSaldoAwalState(Number(profileRes.data.saldo_awal ?? 0))
+        setSaldoAwalState({
+          pribadi: Number(profileRes.data.saldo_awal_pribadi ?? 0),
+          bisnis: Number(profileRes.data.saldo_awal_bisnis ?? 0),
+        })
         setSaldoAwalHutangState({
           pribadi: Number(profileRes.data.saldo_awal_hutang_pribadi ?? 0),
           bisnis: Number(profileRes.data.saldo_awal_hutang_bisnis ?? 0),
@@ -119,7 +122,7 @@ export function useFinance() {
         setTransactions([])
         setLiabilities([])
         setReceivables([])
-        setSaldoAwalState(DEFAULT_SALDO_AWAL)
+        setSaldoAwalState(EMPTY_SALDO)
         setSaldoAwalHutangState(EMPTY_SALDO)
         setSaldoAwalPiutangState(EMPTY_SALDO)
         setHydrated(true)
@@ -168,10 +171,11 @@ export function useFinance() {
   )
 
   const setSaldoAwal = useCallback(
-    (value: number) => {
-      setSaldoAwalState(value)
+    (entity: Entity, value: number) => {
+      setSaldoAwalState((prev) => ({ ...prev, [entity]: value }))
       if (userId) {
-        supabase.from("profiles").update({ saldo_awal: value }).eq("id", userId).then()
+        const column = entity === "bisnis" ? "saldo_awal_bisnis" : "saldo_awal_pribadi"
+        supabase.from("profiles").update({ [column]: value }).eq("id", userId).then()
       }
     },
     [userId],
@@ -414,7 +418,8 @@ export function useFinance() {
     setTransactions([])
     setLiabilities([])
     setReceivables([])
-    setSaldoAwal(0)
+    setSaldoAwal("pribadi", 0)
+    setSaldoAwal("bisnis", 0)
     setSaldoAwalHutang("pribadi", 0)
     setSaldoAwalHutang("bisnis", 0)
     setSaldoAwalPiutang("pribadi", 0)
