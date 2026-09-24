@@ -25,10 +25,16 @@ import {
 } from "@/lib/finance"
 import { EntitySelector } from "@/components/entity-toggle"
 
+interface SaldoAwalByEntity {
+  pribadi: number
+  bisnis: number
+}
+
 interface TabPiutangProps {
   receivables: Receivable[]
   saldoAwalPiutang: number
-  onSaveSaldo: (value: number) => void
+  saldoAwalPiutangByEntity: SaldoAwalByEntity
+  onSaveSaldo: (entity: Entity, value: number) => void
   onAdd: (recv: Omit<Receivable, "id">) => void
   onDelete: (id: string) => void
   onMarkPaid: (id: string, date: string) => void
@@ -38,6 +44,7 @@ interface TabPiutangProps {
 export function TabPiutang({
   receivables,
   saldoAwalPiutang,
+  saldoAwalPiutangByEntity,
   onSaveSaldo,
   onAdd,
   onDelete,
@@ -107,10 +114,11 @@ export function TabPiutang({
 
         {editingSaldo ? (
           <SaldoAwalPiutangEditor
-            initial={saldoAwalPiutang}
+            byEntity={saldoAwalPiutangByEntity}
+            defaultEntity={defaultEntity}
             onCancel={() => setEditingSaldo(false)}
-            onSave={(v) => {
-              onSaveSaldo(v)
+            onSave={(entity, v) => {
+              onSaveSaldo(entity, v)
               setEditingSaldo(false)
             }}
           />
@@ -404,19 +412,27 @@ function AddReceivableForm({
 }
 
 function SaldoAwalPiutangEditor({
-  initial,
+  byEntity,
+  defaultEntity,
   onSave,
   onCancel,
 }: {
-  initial: number
-  onSave: (value: number) => void
+  byEntity: SaldoAwalByEntity
+  defaultEntity: Entity
+  onSave: (entity: Entity, value: number) => void
   onCancel: () => void
 }) {
-  const [value, setValue] = useState(String(initial || ""))
+  const [entity, setEntity] = useState<Entity>(defaultEntity)
+  const [value, setValue] = useState(String(byEntity[defaultEntity] || ""))
+
+  function handleEntityChange(next: Entity) {
+    setEntity(next)
+    setValue(String(byEntity[next] || ""))
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onSave(Math.max(0, Math.round(Number(value) || 0)))
+    onSave(entity, Math.max(0, Math.round(Number(value) || 0)))
   }
 
   return (
@@ -424,22 +440,25 @@ function SaldoAwalPiutangEditor({
       onSubmit={handleSubmit}
       className="mb-3 rounded-lg border border-border/70 bg-muted/40 p-3"
     >
-      <label htmlFor="saldo-awal-piutang" className="mb-1.5 block text-sm font-medium">
-        Saldo Awal Piutang (Rp)
+      <label className="mb-1.5 block text-sm font-medium">Entitas</label>
+      <EntitySelector value={entity} onChange={handleEntityChange} />
+
+      <label htmlFor="saldo-awal-piutang" className="mb-1.5 mt-3 block text-sm font-medium">
+        Saldo Awal Piutang — {ENTITY_LABEL[entity]} (Rp)
       </label>
       <input
         id="saldo-awal-piutang"
         type="number"
         inputMode="numeric"
         min="0"
-        autoFocus
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="0"
         className={inputClass}
       />
       <p className="mt-1 text-xs text-muted-foreground">
-        Titik awal saldo piutang sebelum transaksi periode ini dihitung.
+        Titik awal saldo piutang {ENTITY_LABEL[entity].toLowerCase()} sebelum transaksi periode ini
+        dihitung.
       </p>
       <div className="mt-3 flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" className="flex-1" onClick={onCancel}>
