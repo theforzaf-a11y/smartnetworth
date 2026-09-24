@@ -67,7 +67,11 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 function EquationSign({ symbol }: { symbol: string }) {
-  return <div className="col-span-2 flex items-center justify-center text-xl font-semibold text-muted-foreground lg:col-span-1">{symbol}</div>
+  return (
+    <div className="col-span-2 hidden items-center justify-center text-xl font-semibold text-muted-foreground lg:col-span-1 lg:flex">
+      {symbol}
+    </div>
+  )
 }
 
 export function TabRingkasan({
