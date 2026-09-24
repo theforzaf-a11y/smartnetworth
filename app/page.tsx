@@ -283,6 +283,16 @@ function AppShell() {
                 ? finance.saldoAwal.pribadi + finance.saldoAwal.bisnis
                 : finance.saldoAwal[entityFilter]
             }
+            saldoAwalHutang={
+              entityFilter === "semua"
+                ? finance.saldoAwalHutang.pribadi + finance.saldoAwalHutang.bisnis
+                : finance.saldoAwalHutang[entityFilter]
+            }
+            saldoAwalPiutang={
+              entityFilter === "semua"
+                ? finance.saldoAwalPiutang.pribadi + finance.saldoAwalPiutang.bisnis
+                : finance.saldoAwalPiutang[entityFilter]
+            }
             liabilities={filterLiabByEntity(finance.liabilities, entityFilter)}
             receivables={filterRecvByEntity(finance.receivables, entityFilter)}
             onDelete={finance.deleteTransaction}
