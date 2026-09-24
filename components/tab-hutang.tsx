@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   CreditCard,
   Landmark,
@@ -20,6 +20,7 @@ import {
   dueStatus,
   ENTITY_LABEL,
   type Entity,
+  filterByDateRange,
   formatRp,
   liabilityDistribution,
   LIABILITY_CATEGORIES,
@@ -34,6 +35,7 @@ import {
   type Transaction,
 } from "@/lib/finance"
 import { EntitySelector } from "@/components/entity-toggle"
+import { DateRangeFilter, type DateRangeValue } from "@/components/date-range-filter"
 
 interface SaldoAwalByEntity {
   pribadi: number
@@ -65,6 +67,8 @@ export function TabHutang({
 }: TabHutangProps) {
   const [showForm, setShowForm] = useState(false)
   const [editingSaldo, setEditingSaldo] = useState(false)
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null, preset: "semua" })
+  const [visibleCount, setVisibleCount] = useState(15)
 
   const outstanding = useMemo(() => totalLiabilities(liabilities), [liabilities])
   const payments = useMemo(() => totalDebtPayments(transactions), [transactions])
@@ -73,6 +77,14 @@ export function TabHutang({
   const totalDebt = saldoAwalHutang + newDebt - payments
   const monthlyTotal = useMemo(() => totalMonthlyInstallments(liabilities), [liabilities])
   const distribution = useMemo(() => liabilityDistribution(liabilities), [liabilities])
+  const filteredLiabilities = useMemo(
+    () => filterByDateRange(liabilities, (l) => l.createdAt, dateRange.from, dateRange.to),
+    [liabilities, dateRange],
+  )
+
+  useEffect(() => {
+    setVisibleCount(15)
+  }, [dateRange])
 
   return (
     <div className="space-y-5">
@@ -232,11 +244,29 @@ export function TabHutang({
             </p>
           </div>
         ) : (
-          <div className="mt-2 space-y-3">
-            {liabilities.map((l) => (
-              <LoanRow key={l.id} liability={l} onDelete={onDelete} onPay={onPay} />
-            ))}
-          </div>
+          <>
+            <div className="mb-3">
+              <DateRangeFilter value={dateRange} onChange={setDateRange} />
+            </div>
+            {filteredLiabilities.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Tidak ada hutang pada rentang tanggal ini.
+              </p>
+            ) : (
+              <div className="mt-2 space-y-3">
+                {filteredLiabilities.slice(0, visibleCount).map((l) => (
+                  <LoanRow key={l.id} liability={l} onDelete={onDelete} onPay={onPay} />
+                ))}
+              </div>
+            )}
+            {filteredLiabilities.length > visibleCount ? (
+              <div className="mt-3 flex justify-center">
+                <Button variant="outline" size="sm" onClick={() => setVisibleCount((c) => c + 15)}>
+                  Tampilkan Lebih Banyak
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </Card>
     </div>
