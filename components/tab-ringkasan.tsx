@@ -52,6 +52,8 @@ import { Button } from "@/components/ui/button"
 interface TabRingkasanProps {
   transactions: Transaction[]
   saldoAwal: number
+  saldoAwalHutang: number
+  saldoAwalPiutang: number
   liabilities: Liability[]
   receivables: Receivable[]
   onDelete: (id: string) => void
@@ -71,6 +73,8 @@ function EquationSign({ symbol }: { symbol: string }) {
 export function TabRingkasan({
   transactions,
   saldoAwal,
+  saldoAwalHutang,
+  saldoAwalPiutang,
   liabilities,
   receivables,
   onDelete,
@@ -84,8 +88,8 @@ export function TabRingkasan({
     const expense = totalExpense(transactions)
     const cashExpense = totalCashExpense(transactions)
     const creditExpense = totalCreditExpense(transactions)
-    const debt = totalLiabilities(liabilities)
-    const piutang = receivableTotals(receivables).active
+    const debt = saldoAwalHutang + totalLiabilities(liabilities)
+    const piutang = saldoAwalPiutang + receivableTotals(receivables).active
     const sisa = saldoAwal + income - cashExpense
     const totalHarta = sisa + piutang
     return {
@@ -99,7 +103,7 @@ export function TabRingkasan({
       piutang,
       netWorth: totalHarta - debt,
     }
-  }, [transactions, saldoAwal, liabilities, receivables])
+  }, [transactions, saldoAwal, saldoAwalHutang, saldoAwalPiutang, liabilities, receivables])
 
   const dueAlerts = useMemo(() => upcomingDueAlerts(liabilities, 5), [liabilities])
 
