@@ -410,11 +410,16 @@ function AppShell() {
           <TabPajak
             transactions={filterTxByEntity(finance.transactions, "bisnis")}
             receivables={finance.receivables.filter((r) => r.entity === "bisnis")}
+            saldoAwalOmset={finance.saldoAwalOmset.bisnis}
+            onSaveSaldoOmset={(value) => finance.setSaldoAwalOmset("bisnis", value)}
           />
         ) : (
           <TabLabaRugi
             transactions={finance.transactions}
             receivables={finance.receivables}
+            saldoAwalOmset={finance.saldoAwalOmset.bisnis}
+            saldoAwalPengeluaran={finance.saldoAwalPengeluaran.bisnis}
+            onSaveSaldoPengeluaran={(value) => finance.setSaldoAwalPengeluaran("bisnis", value)}
           />
         )}
       </div>
