@@ -62,6 +62,8 @@ export function useFinance() {
   const [saldoAwal, setSaldoAwalState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [saldoAwalHutang, setSaldoAwalHutangState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [saldoAwalPiutang, setSaldoAwalPiutangState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
+  const [saldoAwalOmset, setSaldoAwalOmsetState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
+  const [saldoAwalPengeluaran, setSaldoAwalPengeluaranState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [liabilities, setLiabilities] = useState<Liability[]>([])
   const [receivables, setReceivables] = useState<Receivable[]>([])
   const [hydrated, setHydrated] = useState(false)
@@ -77,7 +79,7 @@ export function useFinance() {
         supabase
           .from("profiles")
           .select(
-            "saldo_awal_pribadi, saldo_awal_bisnis, saldo_awal_hutang_pribadi, saldo_awal_hutang_bisnis, saldo_awal_piutang_pribadi, saldo_awal_piutang_bisnis",
+            "saldo_awal_pribadi, saldo_awal_bisnis, saldo_awal_hutang_pribadi, saldo_awal_hutang_bisnis, saldo_awal_piutang_pribadi, saldo_awal_piutang_bisnis, saldo_awal_omset_pribadi, saldo_awal_omset_bisnis, saldo_awal_pengeluaran_pribadi, saldo_awal_pengeluaran_bisnis",
           )
           .eq("id", uid)
           .maybeSingle(),
@@ -98,6 +100,14 @@ export function useFinance() {
         setSaldoAwalPiutangState({
           pribadi: Number(profileRes.data.saldo_awal_piutang_pribadi ?? 0),
           bisnis: Number(profileRes.data.saldo_awal_piutang_bisnis ?? 0),
+        })
+        setSaldoAwalOmsetState({
+          pribadi: Number(profileRes.data.saldo_awal_omset_pribadi ?? 0),
+          bisnis: Number(profileRes.data.saldo_awal_omset_bisnis ?? 0),
+        })
+        setSaldoAwalPengeluaranState({
+          pribadi: Number(profileRes.data.saldo_awal_pengeluaran_pribadi ?? 0),
+          bisnis: Number(profileRes.data.saldo_awal_pengeluaran_bisnis ?? 0),
         })
       }
       setHydrated(true)
@@ -125,6 +135,8 @@ export function useFinance() {
         setSaldoAwalState(EMPTY_SALDO)
         setSaldoAwalHutangState(EMPTY_SALDO)
         setSaldoAwalPiutangState(EMPTY_SALDO)
+        setSaldoAwalOmsetState(EMPTY_SALDO)
+        setSaldoAwalPengeluaranState(EMPTY_SALDO)
         setHydrated(true)
       }
     })
@@ -197,6 +209,28 @@ export function useFinance() {
       setSaldoAwalPiutangState((prev) => ({ ...prev, [entity]: value }))
       if (userId) {
         const column = entity === "bisnis" ? "saldo_awal_piutang_bisnis" : "saldo_awal_piutang_pribadi"
+        supabase.from("profiles").update({ [column]: value }).eq("id", userId).then()
+      }
+    },
+    [userId],
+  )
+
+  const setSaldoAwalOmset = useCallback(
+    (entity: Entity, value: number) => {
+      setSaldoAwalOmsetState((prev) => ({ ...prev, [entity]: value }))
+      if (userId) {
+        const column = entity === "bisnis" ? "saldo_awal_omset_bisnis" : "saldo_awal_omset_pribadi"
+        supabase.from("profiles").update({ [column]: value }).eq("id", userId).then()
+      }
+    },
+    [userId],
+  )
+
+  const setSaldoAwalPengeluaran = useCallback(
+    (entity: Entity, value: number) => {
+      setSaldoAwalPengeluaranState((prev) => ({ ...prev, [entity]: value }))
+      if (userId) {
+        const column = entity === "bisnis" ? "saldo_awal_pengeluaran_bisnis" : "saldo_awal_pengeluaran_pribadi"
         supabase.from("profiles").update({ [column]: value }).eq("id", userId).then()
       }
     },
@@ -424,12 +458,16 @@ export function useFinance() {
     setSaldoAwalHutang("bisnis", 0)
     setSaldoAwalPiutang("pribadi", 0)
     setSaldoAwalPiutang("bisnis", 0)
+    setSaldoAwalOmset("pribadi", 0)
+    setSaldoAwalOmset("bisnis", 0)
+    setSaldoAwalPengeluaran("pribadi", 0)
+    setSaldoAwalPengeluaran("bisnis", 0)
     if (userId) {
       supabase.from("transactions").delete().eq("user_id", userId).then()
       supabase.from("liabilities").delete().eq("user_id", userId).then()
       supabase.from("receivables").delete().eq("user_id", userId).then()
     }
-  }, [userId, setSaldoAwal, setSaldoAwalHutang, setSaldoAwalPiutang])
+  }, [userId, setSaldoAwal, setSaldoAwalHutang, setSaldoAwalPiutang, setSaldoAwalOmset, setSaldoAwalPengeluaran])
 
   return {
     hydrated,
@@ -437,6 +475,8 @@ export function useFinance() {
     saldoAwal,
     saldoAwalHutang,
     saldoAwalPiutang,
+    saldoAwalOmset,
+    saldoAwalPengeluaran,
     liabilities,
     receivables,
     addTransaction,
@@ -444,6 +484,8 @@ export function useFinance() {
     setSaldoAwal,
     setSaldoAwalHutang,
     setSaldoAwalPiutang,
+    setSaldoAwalOmset,
+    setSaldoAwalPengeluaran,
     addLiability,
     deleteLiability,
     payLiability,
