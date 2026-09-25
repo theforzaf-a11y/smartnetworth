@@ -75,53 +75,51 @@ export function TabLabaRugi({ transactions, receivables }: TabLabaRugiProps) {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardTitle>Total Penjualan s.d. Bulan Ini</CardTitle>
-        <StatCard
-          label="Total Penjualan"
-          value={formatRupiah(data.salesToDate)}
-          icon={Wallet}
-          tone="sky"
-        />
-      </Card>
+      <StatCard
+        label="Total Penjualan s.d. Bulan Ini"
+        value={formatRupiah(data.salesToDate)}
+        icon={<Wallet className="size-4" />}
+        accent="sky"
+      />
 
       <Card>
         <CardTitle>Rincian Penjualan</CardTitle>
         <div className="space-y-1">
-          <BreakdownRow label="Penjualan Bulan Ini" value={formatRupiah(data.salesThisMonth)} tone="sky" />
-          <BreakdownRow label="Akumulasi Bulan Lalu" value={formatRupiah(data.salesPrior)} tone="default" />
-          <BreakdownRow label="Total s.d. Bulan Ini" value={formatRupiah(data.salesToDate)} tone="indigo" />
+          <BreakdownRow label="Penjualan Bulan Ini" value={data.salesThisMonth} tone="sky" />
+          <BreakdownRow label="Akumulasi Bulan Lalu" value={data.salesPrior} tone="default" />
+          <BreakdownRow label="Total s.d. Bulan Ini" value={data.salesToDate} op="=" tone="sky" emphasize />
         </div>
       </Card>
 
       <Card>
         <CardTitle>Rincian Pengeluaran</CardTitle>
         <div className="space-y-1">
-          <BreakdownRow label="Pengeluaran Bulan Ini" value={formatRupiah(data.expenseThisMonth)} tone="rose" />
-          <BreakdownRow label="Akumulasi Bulan Lalu" value={formatRupiah(data.expensePrior)} tone="default" />
-          <BreakdownRow label="Total s.d. Bulan Ini" value={formatRupiah(data.expenseToDate)} tone="indigo" />
+          <BreakdownRow label="Pengeluaran Bulan Ini" value={data.expenseThisMonth} tone="rose" />
+          <BreakdownRow label="Akumulasi Bulan Lalu" value={data.expensePrior} tone="default" />
+          <BreakdownRow label="Total s.d. Bulan Ini" value={data.expenseToDate} op="=" tone="rose" emphasize />
         </div>
       </Card>
 
-      <Card>
-        <CardTitle>Laba/Rugi Bulan Ini</CardTitle>
-        <StatCard
-          label={isProfitBulanIni ? "Laba Bulan Ini" : "Rugi Bulan Ini"}
-          value={formatRupiah(Math.abs(data.labaBulanIni))}
-          icon={isProfitBulanIni ? TrendingUp : TrendingDown}
-          tone={isProfitBulanIni ? "indigo" : "rose"}
-        />
-      </Card>
+      <StatCard
+        label={isProfitBulanIni ? "Laba Bulan Ini" : "Rugi Bulan Ini"}
+        value={formatRupiah(Math.abs(data.labaBulanIni))}
+        icon={isProfitBulanIni ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+        accent={isProfitBulanIni ? "emerald" : "rose"}
+        colorValue
+      />
 
       <Card>
         <CardTitle>Akumulasi Laba/Rugi s.d. Bulan Ini</CardTitle>
         <div className="space-y-1">
-          <BreakdownRow label="Total Penjualan" value={formatRupiah(data.salesToDate)} tone="sky" />
-          <BreakdownRow label="Total Pengeluaran" value={formatRupiah(data.expenseToDate)} tone="rose" />
+          <BreakdownRow label="Total Penjualan" value={data.salesToDate} tone="sky" />
+          <BreakdownRow label="Total Pengeluaran" value={data.expenseToDate} tone="rose" />
           <BreakdownRow
             label={isProfitAkumulasi ? "Akumulasi Laba" : "Akumulasi Rugi"}
-            value={formatRupiah(Math.abs(data.labaAkumulasi))}
-            tone={isProfitAkumulasi ? "indigo" : "rose"}
+            value={data.labaAkumulasi}
+            op="="
+            tone={isProfitAkumulasi ? "violet" : "rose"}
+            emphasize
+            signed
           />
         </div>
       </Card>
