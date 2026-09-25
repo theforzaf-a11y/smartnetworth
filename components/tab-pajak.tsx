@@ -294,7 +294,6 @@ export function TabPajak({
 }
 
 function MoneyInput({
-function MoneyInput({
   id,
   value,
   onChange,
