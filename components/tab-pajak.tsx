@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Receipt, Info, Wand2, Check } from "lucide-react"
 import { Card, CardTitle } from "@/components/finance-ui"
 import {
@@ -28,9 +28,17 @@ interface TabPajakProps {
   transactions: Transaction[]
   /** Business (bisnis) receivables — recognized as turnover whether paid or not. */
   receivables?: Receivable[]
+  /** Persisted "Akumulasi Omset s.d. Bulan Lalu" untuk entity bisnis. */
+  saldoAwalOmset: number
+  onSaveSaldoOmset: (value: number) => void
 }
 
-export function TabPajak({ transactions, receivables = [] }: TabPajakProps) {
+export function TabPajak({
+  transactions,
+  receivables = [],
+  saldoAwalOmset,
+  onSaveSaldoOmset,
+}: TabPajakProps) {
   // Peredaran bruto UMKM = pemasukan kategori "Penjualan" + seluruh piutang bisnis
   // (dibukukan sebagai omset saat terjadi transaksi, baik lunas maupun belum).
   const salesRevenue = useMemo(
@@ -66,12 +74,16 @@ export function TabPajak({ transactions, receivables = [] }: TabPajakProps) {
     return lines.sort((a, b) => b.date.localeCompare(a.date))
   }, [transactions, receivables])
 
-  // Akumulasi omset s.d. bulan lalu (saldo awal omset)
-  const [priorOmzet, setPriorOmzet] = useState("")
+  // Akumulasi omset s.d. bulan lalu (saldo awal omset) — tersimpan permanen di database
+  const [priorOmzet, setPriorOmzet] = useState(saldoAwalOmset ? String(saldoAwalOmset) : "")
   // Omset periode berjalan bila diinput manual
   const [manualCurrent, setManualCurrent] = useState("")
   // Toggle: gunakan omset penjualan aplikasi sebagai omset periode berjalan
   const [useAppIncome, setUseAppIncome] = useState(true)
+
+  useEffect(() => {
+    setPriorOmzet(saldoAwalOmset ? String(saldoAwalOmset) : "")
+  }, [saldoAwalOmset])
 
   const prior = Number(priorOmzet) || 0
   const current = useAppIncome ? salesRevenue : Number(manualCurrent) || 0
@@ -110,10 +122,12 @@ export function TabPajak({ transactions, receivables = [] }: TabPajakProps) {
           id="prior-omzet"
           value={priorOmzet}
           onChange={setPriorOmzet}
+          onBlurCommit={() => onSaveSaldoOmset(Number(priorOmzet) || 0)}
           placeholder="0"
         />
         <p className="mt-1.5 text-xs text-muted-foreground">
-          Total peredaran bruto yang sudah tercatat sejak awal tahun pajak hingga bulan lalu.
+          Total peredaran bruto yang sudah tercatat sejak awal tahun pajak hingga bulan lalu. Angka ini
+          tersimpan otomatis dan juga dipakai di tab Laba/Rugi.
         </p>
 
         <div className="mt-4">
@@ -280,15 +294,18 @@ export function TabPajak({ transactions, receivables = [] }: TabPajakProps) {
 }
 
 function MoneyInput({
+function MoneyInput({
   id,
   value,
   onChange,
+  onBlurCommit,
   placeholder,
   disabled,
 }: {
   id: string
   value: string
   onChange: (v: string) => void
+  onBlurCommit?: () => void
   placeholder?: string
   disabled?: boolean
 }) {
@@ -304,6 +321,7 @@ function MoneyInput({
         min="0"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlurCommit}
         placeholder={placeholder}
         disabled={disabled}
         className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
