@@ -81,23 +81,6 @@ export function PasswordGate() {
     setLoading(false)
   }
 }
-  const handleGoogleSignIn = async () => {
-    setError(null)
-    setInfo(null)
-    setLoading(true)
-    try {
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin,
-        },
-      })
-      if (oauthError) throw oauthError
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal masuk dengan Google.")
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
