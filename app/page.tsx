@@ -16,6 +16,7 @@ import {
   Loader2,
   CheckCircle2,
   HelpCircle,
+  TrendingUp,
 } from "lucide-react"
 import { FoxLogo } from "@/components/fox-logo"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,7 @@ import { TabHarta } from "@/components/tab-harta"
 import { TabHutang } from "@/components/tab-hutang"
 import { TabPiutang } from "@/components/tab-piutang"
 import { TabPajak } from "@/components/tab-pajak"
+import { TabLabaRugi } from "@/components/tab-laba-rugi"
 import { PasswordGate } from "@/components/password-gate"
 import { TrialExpired } from "@/components/trial-expired"
 import { AdminSettings } from "@/components/admin-settings"
@@ -34,7 +36,7 @@ import { useFinance } from "@/lib/use-finance"
 import { filterLiabByEntity, filterRecvByEntity, filterTxByEntity, type EntityFilter } from "@/lib/finance"
 import { AccessProvider, useAccess } from "@/lib/access-context"
 
-type Tab = "ringkasan" | "catat" | "harta" | "hutang" | "piutang" | "pajak"
+type Tab = "ringkasan" | "catat" | "harta" | "hutang" | "piutang" | "pajak" | "labarugi"
 
 const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard; activeClass: string }[] = [
   {
@@ -72,6 +74,12 @@ const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard; activeClass
     label: "Pajak UMKM",
     icon: Receipt,
     activeClass: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+  },
+  {
+    key: "labarugi",
+    label: "Laba/Rugi",
+    icon: TrendingUp,
+    activeClass: "bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200",
   },
 ]
 
@@ -398,10 +406,15 @@ function AppShell() {
             onMarkPaid={finance.markReceivablePaid}
             defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
-        ) : (
+        ) : tab === "pajak" ? (
           <TabPajak
             transactions={filterTxByEntity(finance.transactions, "bisnis")}
             receivables={finance.receivables.filter((r) => r.entity === "bisnis")}
+          />
+        ) : (
+          <TabLabaRugi
+            transactions={finance.transactions}
+            receivables={finance.receivables}
           />
         )}
       </div>
