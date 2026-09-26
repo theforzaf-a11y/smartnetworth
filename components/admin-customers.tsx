@@ -281,23 +281,36 @@ export function AdminCustomers({ onClose }: AdminCustomersProps) {
                             onChange={(e) => setStartDate(e.target.value)}
                             className={inputClass}
                           />
+                          <p className="text-[11px] text-muted-foreground">
+                            Pilih siklus langganan (yang terpilih berwarna biru solid):
+                          </p>
                           <div className="grid grid-cols-2 gap-2">
-                            <Button
+                            <button
                               type="button"
-                              variant={cycle === "bulanan" ? "default" : "outline"}
-                              size="sm"
                               onClick={() => setCycle("bulanan")}
+                              className={
+                                "flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors " +
+                                (cycle === "bulanan"
+                                  ? "border-indigo-600 bg-indigo-600 text-white"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted")
+                              }
                             >
+                              {cycle === "bulanan" ? <CheckCircle2 className="size-3.5" /> : null}
                               Bulanan
-                            </Button>
-                            <Button
+                            </button>
+                            <button
                               type="button"
-                              variant={cycle === "tahunan" ? "default" : "outline"}
-                              size="sm"
                               onClick={() => setCycle("tahunan")}
+                              className={
+                                "flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors " +
+                                (cycle === "tahunan"
+                                  ? "border-indigo-600 bg-indigo-600 text-white"
+                                  : "border-border bg-background text-muted-foreground hover:bg-muted")
+                              }
                             >
+                              {cycle === "tahunan" ? <CheckCircle2 className="size-3.5" /> : null}
                               Tahunan
-                            </Button>
+                            </button>
                           </div>
                           <div className="flex gap-2">
                             <Button
