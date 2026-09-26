@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Lock, Mail, PiggyBank, Loader2 } from "lucide-react"
+import { Lock, Mail, Loader2 } from "lucide-react"
+import { FoxLogo } from "@/components/fox-logo"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 
@@ -86,8 +87,8 @@ export function PasswordGate() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-400">
-            <PiggyBank className="size-6" />
+          <span className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm shadow-indigo-500/30">
+            <FoxLogo className="size-6" />
           </span>
           <h1 className="text-lg font-bold">SmartNetWorth</h1>
           <p className="text-xs text-muted-foreground">
