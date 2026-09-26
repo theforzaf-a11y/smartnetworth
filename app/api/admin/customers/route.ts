@@ -61,8 +61,8 @@ export async function GET(req: NextRequest) {
       }
     })
     .sort((a, b) => {
-      const at = a.trialEndsAt ? new Date(a.trialEndsAt).getTime() : Infinity
-      const bt = b.trialEndsAt ? new Date(b.trialEndsAt).getTime() : Infinity
+      const at = a.trialEndsAt ? new Date(a.trialEndsAt).getTime() : -Infinity
+      const bt = b.trialEndsAt ? new Date(b.trialEndsAt).getTime() : -Infinity
       return at - bt
     })
 
