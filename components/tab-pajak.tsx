@@ -280,7 +280,7 @@ export function TabPajak({
         <div className="flex gap-2.5">
           <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="text-xs leading-relaxed text-muted-foreground">
-            <p className="mb-1 font-medium text-foreground">Tentang PP 55/2022</p>
+            <p className="mb-1 font-medium text-foreground">Tentang PP 55/2022 sebagaimana dengan perubahannya PP 20/2026</p>
             Wajib Pajak orang pribadi UMKM dengan peredaran bruto sampai Rp 4,8 miliar setahun
             dikenai PPh Final 0,5%. Bagian omzet sampai Rp 500 juta pertama dalam satu tahun pajak
             tidak dikenai pajak, sehingga akumulasi omset bulan-bulan sebelumnya ikut menentukan sisa
