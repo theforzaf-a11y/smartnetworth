@@ -122,7 +122,7 @@ export function TabPajakProfesi({
           </span>
           <div>
             <h3 className="text-base font-semibold">Kalkulator Pajak Profesi (NPPN)</h3>
-            <p className="text-xs text-muted-foreground">Norma Penghitungan Penghasilan Neto — Pasal 17 UU PPh</p>
+            <p className="text-xs text-muted-foreground">Norma Penghitungan Penghasilan Neto — Pasal 14 UU PPh</p>
           </div>
         </div>
 
