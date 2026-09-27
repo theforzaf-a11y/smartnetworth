@@ -38,6 +38,8 @@ export const INCOME_CATEGORIES = ["Penjualan", "Gaji", "Bonus", "Freelance", "In
 
 /** Income category counted as UMKM business turnover (peredaran bruto) for tax. */
 export const SALES_CATEGORY = "Penjualan"
+/** Income category counted as freelance-professional income (NPPN) for tax. */
+export const PROFESI_CATEGORY = "Freelance"
 
 export const ASSET_CATEGORIES = ["Tabungan", "Deposito", "Emas", "Saham", "Reksadana"] as const
 
@@ -178,6 +180,10 @@ export function totalIncome(txs: Transaction[]): number {
   export function totalSalesRevenue(txs: Transaction[]): number {
   return sumBy(txs, (t) => t.type === "income" && t.category === SALES_CATEGORY)
   }
+
+export function totalProfesiIncome(txs: Transaction[]): number {
+  return sumBy(txs, (t) => t.type === "income" && t.category === PROFESI_CATEGORY)
+}
 
 export function totalExpense(txs: Transaction[]): number {
   return sumBy(txs, (t) => t.type === "expense")
