@@ -1,9 +1,15 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Briefcase, Info } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Briefcase, Info, Wand2, Check } from "lucide-react"
 import { Card, CardTitle } from "@/components/finance-ui"
-import { formatRp } from "@/lib/finance"
+import {
+  formatRp,
+  MONTH_NAMES_ID,
+  PROFESI_CATEGORY,
+  totalProfesiIncome,
+  type Transaction,
+} from "@/lib/finance"
 
 const PROFESI_PRESET = [
   { id: "tenaga-ahli", label: "Dokter / Pengacara / Notaris / Konsultan", pct: 50 },
@@ -50,16 +56,50 @@ function progressiveTax(pkp: number): { total: number; rows: { range: string; ra
   return { total, rows }
 }
 
-export function TabPajakProfesi() {
+interface TabPajakProfesiProps {
+  /** Transaksi entity "pribadi" (pemasukan praktik profesi dicatat di sini). */
+  transactions: Transaction[]
+  /** Persisted "Akumulasi Penghasilan s.d. Bulan Lalu" untuk penghasilan profesi. */
+  saldoAwalProfesi: number
+  onSaveSaldoProfesi: (value: number) => void
+}
+
+export function TabPajakProfesi({
+  transactions,
+  saldoAwalProfesi,
+  onSaveSaldoProfesi,
+}: TabPajakProfesiProps) {
   const [profesiId, setProfesiId] = useState<(typeof PROFESI_PRESET)[number]["id"]>("tenaga-ahli")
   const [customPct, setCustomPct] = useState("50")
   const [kawin, setKawin] = useState(false)
   const [tanggungan, setTanggungan] = useState(0)
-  const [brutoInput, setBrutoInput] = useState("")
 
   const pct = profesiId === "custom" ? Number(customPct) || 0 : 50
 
-  const bruto = Number(brutoInput) || 0
+  // Penghasilan periode berjalan dari kategori "Freelance" (praktik/jasa profesi) di Catat Keuangan.
+  const periodeIncome = useMemo(() => totalProfesiIncome(transactions), [transactions])
+
+  const profesiLines = useMemo(() => {
+    return transactions
+      .filter((t) => t.type === "income" && t.category === PROFESI_CATEGORY)
+      .sort((a, b) => b.date.localeCompare(a.date))
+  }, [transactions])
+
+  // Akumulasi penghasilan s.d. bulan lalu (saldo awal) — tersimpan permanen di database
+  const [priorInput, setPriorInput] = useState(saldoAwalProfesi ? String(saldoAwalProfesi) : "")
+  // Penghasilan periode berjalan bila diinput manual
+  const [manualCurrent, setManualCurrent] = useState("")
+  // Toggle: gunakan penghasilan kategori Freelance dari Catat Keuangan sebagai periode berjalan
+  const [useAppIncome, setUseAppIncome] = useState(true)
+
+  useEffect(() => {
+    setPriorInput(saldoAwalProfesi ? String(saldoAwalProfesi) : "")
+  }, [saldoAwalProfesi])
+
+  const prior = Number(priorInput) || 0
+  const current = useAppIncome ? periodeIncome : Number(manualCurrent) || 0
+
+  const bruto = prior + current
   const netto = Math.round(bruto * (pct / 100))
 
   const ptkp = useMemo(() => {
@@ -126,57 +166,115 @@ export function TabPajakProfesi() {
         </div>
 
         <div className="mt-4">
-          <label htmlFor="bruto-profesi" className="mb-1.5 block text-sm font-medium">
-            Penghasilan Bruto Setahun
+          <label htmlFor="prior-profesi" className="mb-1.5 block text-sm font-medium">
+            Akumulasi Penghasilan s.d. Bulan Lalu
+            <span className="ml-1 font-normal text-muted-foreground">(Saldo Awal)</span>
           </label>
-          <MoneyInput id="bruto-profesi" value={brutoInput} onChange={setBrutoInput} placeholder="0" />
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setKawin(false)}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
-              !kawin
-                ? "border-fuchsia-600 bg-fuchsia-600 text-white"
-                : "border-input bg-background text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Tidak Kawin
-          </button>
-          <button
-            type="button"
-            onClick={() => setKawin(true)}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
-              kawin
-                ? "border-fuchsia-600 bg-fuchsia-600 text-white"
-                : "border-input bg-background text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            Kawin
-          </button>
-        </div>
-
-        <div className="mt-3">
-          <label htmlFor="tanggungan" className="mb-1.5 block text-sm font-medium">
-            Jumlah Tanggungan <span className="font-normal text-muted-foreground">(maks. 3)</span>
-          </label>
-          <select
-            id="tanggungan"
-            value={tanggungan}
-            onChange={(e) => setTanggungan(Number(e.target.value))}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
-          >
-            <option value={0}>0</option>
-            <option value={1}>1</option>
-            <option value={2}>2</option>
-            <option value={3}>3</option>
-          </select>
+          <MoneyInput
+            id="prior-profesi"
+            value={priorInput}
+            onChange={setPriorInput}
+            onBlurCommit={() => onSaveSaldoProfesi(Number(priorInput) || 0)}
+            placeholder="0"
+          />
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Status PTKP: <span className="font-medium text-foreground">{statusLabel}</span> — {formatRp(ptkp)}
-            /tahun
+            Total penghasilan bruto praktik/jasa profesi yang sudah tercatat sejak awal tahun pajak
+            hingga bulan lalu. Angka ini tersimpan otomatis.
           </p>
         </div>
+
+        <div className="mt-4">
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="current-profesi" className="block text-sm font-medium">
+              Penghasilan Periode Berjalan{" "}
+              <span className="font-normal text-muted-foreground">(Khusus Kategori Freelance)</span>
+            </label>
+          </div>
+          <MoneyInput
+            id="current-profesi"
+            value={useAppIncome ? String(periodeIncome) : manualCurrent}
+            onChange={setManualCurrent}
+            placeholder="0"
+            disabled={useAppIncome}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setUseAppIncome((v) => !v)}
+          className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-medium transition ${
+            useAppIncome
+              ? "border-fuchsia-300 bg-fuchsia-50 text-fuchsia-700"
+              : "border-input bg-background text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          {useAppIncome ? <Check className="size-3.5" /> : <Wand2 className="size-3.5" />}
+          Gunakan Penghasilan dari Catat Keuangan (Kategori Freelance)
+        </button>
+        {useAppIncome ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Penghasilan periode berjalan menghitung pemasukan berkategori{" "}
+            <span className="font-medium text-foreground">Freelance</span> (praktik/jasa profesi):{" "}
+            {formatRp(periodeIncome)}. Pemasukan lain (Penjualan, Gaji, Bonus, Investasi, dll.) tidak
+            dihitung. Catat penghasilan praktik/jasa Anda di tab "Catat Keuangan" dengan kategori{" "}
+            <span className="font-medium text-foreground">Freelance</span> agar otomatis masuk ke sini.
+          </p>
+        ) : null}
+      </Card>
+
+      <Card>
+        <CardTitle>Total Penghasilan Bruto Setahun</CardTitle>
+        <div className="mt-3 space-y-2.5">
+          <Row label="Akumulasi penghasilan s.d. bulan lalu" value={formatRp(prior)} />
+          <Row
+            label={useAppIncome ? "Penghasilan profesi periode berjalan" : "Penghasilan periode berjalan"}
+            value={`+ ${formatRp(current)}`}
+          />
+          <div className="border-t border-border pt-2.5">
+            <Row label="Total penghasilan bruto setahun" value={formatRp(bruto)} bold />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <CardTitle>Rincian Penghasilan Profesi</CardTitle>
+        <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
+          Seluruh pemasukan berkategori Freelance yang membentuk penghasilan periode berjalan
+        </p>
+        {profesiLines.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Belum ada penghasilan profesi (kategori Freelance) tercatat.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Keterangan</th>
+                  <th className="py-2 pr-3 font-medium">Tanggal</th>
+                  <th className="py-2 text-right font-medium">Nominal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profesiLines.map((t) => (
+                  <tr key={t.id} className="border-b border-border/50 last:border-0">
+                    <td className="py-2 pr-3 font-medium">{t.title}</td>
+                    <td className="py-2 pr-3 text-muted-foreground">{formatTaxDate(t.date)}</td>
+                    <td className="py-2 text-right font-semibold">{formatRp(t.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-border font-semibold">
+                  <td className="py-2 pr-3" colSpan={2}>
+                    Total Penghasilan Profesi
+                  </td>
+                  <td className="py-2 text-right text-fuchsia-700">{formatRp(periodeIncome)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -191,6 +289,52 @@ export function TabPajakProfesi() {
             <Row label="Penghasilan Kena Pajak (PKP)" value={formatRp(pkp)} bold />
           </div>
         </div>
+      </Card>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setKawin(false)}
+          className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
+            !kawin
+              ? "border-fuchsia-600 bg-fuchsia-600 text-white"
+              : "border-input bg-background text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          Tidak Kawin
+        </button>
+        <button
+          type="button"
+          onClick={() => setKawin(true)}
+          className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
+            kawin
+              ? "border-fuchsia-600 bg-fuchsia-600 text-white"
+              : "border-input bg-background text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          Kawin
+        </button>
+      </div>
+
+      <Card>
+        <label htmlFor="tanggungan" className="mb-1.5 block text-sm font-medium">
+          Jumlah Tanggungan <span className="font-normal text-muted-foreground">(maks. 3)</span>
+        </label>
+        <select
+          id="tanggungan"
+          value={tanggungan}
+          onChange={(e) => setTanggungan(Number(e.target.value))}
+          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+        >
+          <option value={0}>0</option>
+          <option value={1}>1</option>
+          <option value={2}>2</option>
+          <option value={3}>3</option>
+        </select>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Status PTKP: <span className="font-medium text-foreground">{statusLabel}</span> — {formatRp(ptkp)}
+          /tahun
+        </p>
       </Card>
 
       {pkp > 0 ? (
@@ -259,12 +403,16 @@ function MoneyInput({
   id,
   value,
   onChange,
+  onBlurCommit,
   placeholder,
+  disabled,
 }: {
   id: string
   value: string
   onChange: (v: string) => void
+  onBlurCommit?: () => void
   placeholder?: string
+  disabled?: boolean
 }) {
   return (
     <div className="relative">
@@ -278,11 +426,19 @@ function MoneyInput({
         min="0"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlurCommit}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+        disabled={disabled}
+        className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
       />
     </div>
   )
+}
+
+function formatTaxDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00")
+  if (Number.isNaN(d.getTime())) return iso
+  return `${d.getDate()} ${MONTH_NAMES_ID[d.getMonth()]?.slice(0, 3) ?? ""} ${d.getFullYear()}`
 }
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
