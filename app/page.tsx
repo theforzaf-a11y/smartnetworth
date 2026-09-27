@@ -434,7 +434,11 @@ function AppShell() {
             onSaveSaldoOmset={(value) => finance.setSaldoAwalOmset("bisnis", value)}
           />
         ) : tab === "profesi" ? (
-          <TabPajakProfesi />
+          <TabPajakProfesi
+            transactions={filterTxByEntity(finance.transactions, "pribadi")}
+            saldoAwalProfesi={finance.saldoAwalProfesi.pribadi}
+            onSaveSaldoProfesi={(value) => finance.setSaldoAwalProfesi("pribadi", value)}
+          />
         ) : (
           <TabLabaRugi
             transactions={finance.transactions}
