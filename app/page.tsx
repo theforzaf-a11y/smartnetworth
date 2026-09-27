@@ -18,6 +18,7 @@ import {
   HelpCircle,
   TrendingUp,
   Users,
+  Briefcase,
 } from "lucide-react"
 import { FoxLogo } from "@/components/fox-logo"
 import { Button } from "@/components/ui/button"
@@ -28,6 +29,7 @@ import { TabHutang } from "@/components/tab-hutang"
 import { TabPiutang } from "@/components/tab-piutang"
 import { TabPajak } from "@/components/tab-pajak"
 import { TabLabaRugi } from "@/components/tab-laba-rugi"
+import { TabPajakProfesi } from "@/components/tab-pajak-profesi"
 import { PasswordGate } from "@/components/password-gate"
 import { TrialExpired } from "@/components/trial-expired"
 import { AdminSettings } from "@/components/admin-settings"
@@ -38,7 +40,7 @@ import { useFinance } from "@/lib/use-finance"
 import { filterLiabByEntity, filterRecvByEntity, filterTxByEntity, type EntityFilter } from "@/lib/finance"
 import { AccessProvider, useAccess } from "@/lib/access-context"
 
-type Tab = "ringkasan" | "catat" | "harta" | "hutang" | "piutang" | "pajak" | "labarugi"
+type Tab = "ringkasan" | "catat" | "harta" | "hutang" | "piutang" | "pajak" | "profesi" | "labarugi"
 
 const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard; activeClass: string }[] = [
   {
@@ -76,6 +78,12 @@ const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard; activeClass
     label: "Pajak UMKM",
     icon: Receipt,
     activeClass: "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200",
+  },
+  {
+    key: "profesi",
+    label: "Pajak Profesi",
+    icon: Briefcase,
+    activeClass: "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-inset ring-fuchsia-200",
   },
   {
     key: "labarugi",
@@ -425,6 +433,8 @@ function AppShell() {
             saldoAwalOmset={finance.saldoAwalOmset.bisnis}
             onSaveSaldoOmset={(value) => finance.setSaldoAwalOmset("bisnis", value)}
           />
+        ) : tab === "profesi" ? (
+          <TabPajakProfesi />
         ) : (
           <TabLabaRugi
             transactions={finance.transactions}
