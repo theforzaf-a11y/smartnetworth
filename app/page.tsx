@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState } from "react"
 import {
   LayoutDashboard,
   PlusCircle,
@@ -11,10 +11,6 @@ import {
   Lock,
   Scale,
   HandCoins,
-  Camera,
-  Upload,
-  Loader2,
-  CheckCircle2,
   HelpCircle,
   TrendingUp,
   Users,
@@ -108,62 +104,9 @@ function AppShell() {
   const [customersOpen, setCustomersOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [entityFilter, setEntityFilter] = useState<EntityFilter>("semua")
-  
-  // State untuk Scan Faktur AI
-  const [isScanning, setIsScanning] = useState(false)
-  const [scanStatus, setScanStatus] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const finance = useFinance()
   const access = useAccess()
-
-  // Fungsi penanganan proses OCR / Scan Faktur
-  const handleScanInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setIsScanning(true)
-    setScanStatus("Membaca & menganalisis faktur...")
-
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await fetch("/api/ocr", {
-        method: "POST",
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error("Gagal memproses faktur")
-      }
-
-      const result = await response.json()
-      const amount = result.total ?? result.amount
-      const merchant = result.merchant ?? result.description
-
-      if (amount && amount > 0) {
-        finance.addTransaction({
-          type: "expense",
-          amount: amount,
-          category: result.category || "Lainnya",
-          description: merchant ? `[Scan OCR] ${merchant}` : "Scan OCR Transaksi dari Faktur",
-          entity: entityFilter === "semua" ? "pribadi" : entityFilter,
-          date: result.date || new Date().toISOString().split("T")[0],
-        } as any)
-        setScanStatus("Berhasil mencatat faktur!")
-      } else {
-        alert("Gagal mengenali jumlah nominal dari faktur.")
-      }
-    } catch (err) {
-      console.error(err)
-      alert("Terjadi kesalahan saat memproses gambar faktur.")
-    } finally {
-      setIsScanning(false)
-      setTimeout(() => setScanStatus(null), 3000)
-      if (fileInputRef.current) fileInputRef.current.value = ""
-    }
-  }
 
   // Wait until access state is read from localStorage to avoid a lock-screen flash.
   if (!access.hydrated) {
@@ -184,16 +127,6 @@ function AppShell() {
 
   return (
     <main className="min-h-screen bg-muted/30 pb-8">
-      {/* Hidden File Input untuk Kamera/Upload */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleScanInvoice}
-      />
-
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
@@ -209,11 +142,10 @@ function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-           <Button variant="ghost" size="icon-sm" 
-                   onClick={() => setHelpOpen(true)}>
-            <HelpCircle className="size-4" />
-          </Button>
-          <Button
+            <Button variant="ghost" size="icon-sm" onClick={() => setHelpOpen(true)}>
+              <HelpCircle className="size-4" />
+            </Button>
+            <Button
               variant="ghost"
               size="icon-sm"
               aria-label="Hapus semua data"
@@ -330,59 +262,14 @@ function AppShell() {
             }}
           />
         ) : tab === "catat" ? (
-          <div className="space-y-4">
-            {/* Widget Banner Scan Faktur / Struk */}
-            <div className="rounded-xl border border-emerald-200 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-100 p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Camera className="size-4 text-emerald-600" />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-900">
-                      Scan Faktur / Struk Otomatis
-                    </h3>
-                  </div>
-                  <p className="text-xs text-emerald-700">
-                    Foto atau upload struk belanja untuk catat transaksi otomatis via AI.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  disabled={isScanning}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-emerald-600 text-white hover:bg-emerald-700 shrink-0 gap-1.5 shadow-sm"
-                >
-                  {isScanning ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      Proses...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="size-3.5" />
-                      Scan Struk
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {scanStatus && (
-                <div className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-emerald-800 bg-emerald-100/80 px-2.5 py-1.5 rounded-lg">
-                  <CheckCircle2 className="size-3.5 text-emerald-600" />
-                  {scanStatus}
-                </div>
-              )}
-            </div>
-
-            {/* Form Catat Keuangan bawaan asli */}
-            <TabCatat
-              onAdd={finance.addTransaction}
-              liabilities={finance.liabilities}
-              onPay={finance.payLiability}
-              onAddCredit={finance.addCreditExpense}
-              prefillDebtId={prefillDebtId}
-              defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
-            />
-          </div>
+          <TabCatat
+            onAdd={finance.addTransaction}
+            liabilities={finance.liabilities}
+            onPay={finance.payLiability}
+            onAddCredit={finance.addCreditExpense}
+            prefillDebtId={prefillDebtId}
+            defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
+          />
         ) : tab === "harta" ? (
           <TabHarta
             transactions={filterTxByEntity(finance.transactions, entityFilter)}
@@ -435,14 +322,14 @@ function AppShell() {
           />
         ) : tab === "profesi" ? (
           <TabPajakProfesi
-  transactions={filterTxByEntity(finance.transactions, "pribadi")}
-  saldoAwalProfesi={finance.saldoAwalProfesi.pribadi}
-  onSaveSaldoProfesi={(value) => finance.setSaldoAwalProfesi("pribadi", value)}
-  saldoAwalBuktiPotong={finance.saldoAwalBuktiPotong.pribadi}
-  onSaveSaldoBuktiPotong={(value) => finance.setSaldoAwalBuktiPotong("pribadi", value)}
-  buktiPotongBerjalan={finance.buktiPotongBerjalan.pribadi}
-  onSaveBuktiPotongBerjalan={(value) => finance.setBuktiPotongBerjalan("pribadi", value)}
-/>
+            transactions={filterTxByEntity(finance.transactions, "pribadi")}
+            saldoAwalProfesi={finance.saldoAwalProfesi.pribadi}
+            onSaveSaldoProfesi={(value) => finance.setSaldoAwalProfesi("pribadi", value)}
+            saldoAwalBuktiPotong={finance.saldoAwalBuktiPotong.pribadi}
+            onSaveSaldoBuktiPotong={(value) => finance.setSaldoAwalBuktiPotong("pribadi", value)}
+            buktiPotongBerjalan={finance.buktiPotongBerjalan.pribadi}
+            onSaveBuktiPotongBerjalan={(value) => finance.setBuktiPotongBerjalan("pribadi", value)}
+          />
         ) : (
           <TabLabaRugi
             transactions={finance.transactions}
