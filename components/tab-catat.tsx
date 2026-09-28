@@ -417,3 +417,395 @@ export function TabCatat({
               variant="outline"
               className="flex-1 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400"
               onClick={() => setVoiceConfirmPending(false)}
+            >
+              <CheckCircle2 className="size-4" />
+              Ya, Sudah Benar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400"
+              onClick={() => {
+                setTitle("")
+                setAmount("")
+                setCategory(EXPENSE_CATEGORIES[0])
+                setDate(new Date().toISOString().slice(0, 10))
+                setVoiceConfirmPending(false)
+                setOcrSuccess("")
+                startVoiceInput()
+              }}
+            >
+              <Mic className="size-4" />
+              Ulangi Rekam
+            </Button>
+          </div>
+        ) : null}
+      </Card>
+
+      {/* Form Section */}
+      <Card>
+        {/* Sub-tab switcher */}
+        <div className="mb-5 flex flex-wrap gap-1 rounded-xl bg-muted p-1">
+          {SUBTABS.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => switchSub(s.key)}
+              className={cnTab(sub === s.key, s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {sub === "debt" ? (
+          <DebtPaymentForm liabilities={liabilities} onPay={onPay} initialId={prefillDebtId} />
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">Entitas</label>
+              <EntitySelector value={entity} onChange={handleEntityChange} />
+              {isProfesi ? (
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Entitas dikunci ke <span className="font-medium text-foreground">Pribadi</span> untuk
+                  penghasilan profesi.
+                </p>
+              ) : null}
+            </div>
+            <div>
+              <label htmlFor="title" className="mb-1.5 block text-sm font-medium">
+                Judul / Keterangan
+              </label>
+              <input
+                id="title"
+                value={title}
+                onChange={(e) => {
+                  const next = e.target.value
+                  setTitle(next)
+                  const suggested = suggestCategory(next, categories)
+                  if (suggested) setCategory(suggested)
+                }}
+                placeholder="cth. Belanja bulanan"
+                className={inputClass}
+                required
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="amount" className="mb-1.5 block text-sm font-medium">
+                  Nominal (Rp)
+                </label>
+                <input
+                  id="amount"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0"
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="date" className="mb-1.5 block text-sm font-medium">
+                  Tanggal
+                </label>
+                <input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={inputClass}
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="category" className="mb-1.5 block text-sm font-medium">
+                Kategori
+              </label>
+              <select
+                id="category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className={inputClass}
+              >
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {sub === "income" && c === PROFESI_CATEGORY ? "Freelance (Praktik / Jasa Profesi)" : c}
+                  </option>
+                ))}
+              </select>
+              {isProfesi ? (
+                <p className="mt-1.5 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-400">
+                  Dicatat sebagai <span className="font-semibold">Pribadi</span> dan otomatis masuk ke
+                  tab <span className="font-semibold">Pajak Profesi</span>. Catat nominal yang benar-benar
+                  Anda terima (setelah dipotong PPh); bukti potong diisi di tab Pajak Profesi.
+                </p>
+              ) : null}
+            </div>
+
+            {sub === "expense" ? (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Metode Pembayaran</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <PaymentMethodOption
+                    active={paymentMethod === "cash"}
+                    onClick={() => setPaymentMethod("cash")}
+                    emoji="💵"
+                    title="Kas / Bank"
+                    desc="Mengurangi Harta Lancar"
+                    tone="emerald"
+                  />
+                  <PaymentMethodOption
+                    active={paymentMethod === "credit"}
+                    onClick={() => setPaymentMethod("credit")}
+                    emoji="💳"
+                    title="Kartu Kredit / PayLater"
+                    desc="Menambah Hutang"
+                    tone="rose"
+                  />
+                </div>
+
+                {paymentMethod === "credit" ? (
+                  <div className="mt-3">
+                    <label htmlFor="credit-liability" className="mb-1.5 block text-sm font-medium">
+                      Bebankan ke Kartu Kredit / Hutang
+                    </label>
+                    <select
+                      id="credit-liability"
+                      value={creditLiabilityId}
+                      onChange={(e) => setCreditLiabilityId(e.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">+ Buat liabilitas PayLater baru otomatis</option>
+                      {liabilities.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name} — sisa {formatRp(l.principal)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      Pengeluaran ini tidak mengurangi kas, melainkan menambah saldo hutang yang
+                      dipilih.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <Button type="submit" size="lg" className="w-full">
+              {saved ? (
+                <>
+                  <CheckCircle2 className="size-4" />
+                  Tersimpan!
+                </>
+              ) : (
+                "Simpan Transaksi"
+              )}
+            </Button>
+          </form>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function DebtPaymentForm({
+  liabilities,
+  onPay,
+  initialId,
+}: {
+  liabilities: Liability[]
+  onPay: (id: string, amount: number, date: string) => void
+  initialId?: string | null
+}) {
+  const active = liabilities.filter((l) => l.principal > 0)
+  const prefill =
+    initialId && active.some((l) => l.id === initialId) ? initialId : active[0]?.id ?? ""
+  const prefillLoan = liabilities.find((l) => l.id === prefill)
+  const [selectedId, setSelectedId] = useState<string>(prefill)
+  const [amount, setAmount] = useState(() =>
+    prefillLoan ? String(Math.min(prefillLoan.monthlyPayment || prefillLoan.principal, prefillLoan.principal)) : "",
+  )
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [saved, setSaved] = useState(false)
+
+  const selected = liabilities.find((l) => l.id === selectedId)
+
+  if (active.length === 0) {
+    return (
+      <p className="rounded-lg bg-muted/60 px-3 py-6 text-center text-sm text-muted-foreground">
+        Belum ada hutang aktif. Tambahkan hutang di tab &quot;Hutang &amp; Liabilitas&quot; terlebih
+        dahulu.
+      </p>
+    )
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!selected) return
+    const amt = Number(amount)
+    if (!amt || amt <= 0) return
+    onPay(selected.id, Math.round(amt), date)
+    setAmount("")
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    // Move selection off a loan that just got fully paid.
+    const remaining = Math.max(0, selected.principal - Math.round(amt))
+    if (remaining <= 0) {
+      const next = liabilities.find((l) => l.id !== selected.id && l.principal > 0)
+      setSelectedId(next?.id ?? "")
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label htmlFor="debt-select" className="mb-1.5 block text-sm font-medium">
+          Pilih Hutang / Cicilan
+        </label>
+        <select
+          id="debt-select"
+          value={selectedId}
+          onChange={(e) => {
+            setSelectedId(e.target.value)
+            const l = liabilities.find((x) => x.id === e.target.value)
+            if (l) setAmount(String(Math.min(l.monthlyPayment || l.principal, l.principal)))
+          }}
+          className={inputClass}
+        >
+          {active.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name} — sisa {formatRp(l.principal)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selected ? (
+        <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/40 p-3 text-xs">
+          <div>
+            <p className="text-muted-foreground">Sisa Pokok</p>
+            <p className="mt-0.5 font-semibold text-rose-600 dark:text-rose-400">
+              {formatRp(selected.principal)}
+            </p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Angsuran / Bulan</p>
+            <p className="mt-0.5 font-semibold">{formatRp(selected.monthlyPayment)}</p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="debt-amount" className="mb-1.5 block text-sm font-medium">
+            Nominal Bayar (Rp)
+          </label>
+          <input
+            id="debt-amount"
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0"
+            className={inputClass}
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor="debt-date" className="mb-1.5 block text-sm font-medium">
+            Tanggal
+          </label>
+          <input
+            id="debt-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className={inputClass}
+            required
+          />
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Pembayaran akan mengurangi saldo Kas dan otomatis memotong sisa pokok hutang.
+      </p>
+
+      <Button type="submit" size="lg" className="w-full">
+        {saved ? (
+          <>
+            <CheckCircle2 className="size-4" />
+            Pembayaran Tercatat!
+          </>
+        ) : (
+          "Bayar Cicilan"
+        )}
+      </Button>
+    </form>
+  )
+}
+
+function PaymentMethodOption({
+  active,
+  onClick,
+  emoji,
+  title,
+  desc,
+  tone,
+}: {
+  active: boolean
+  onClick: () => void
+  emoji: string
+  title: string
+  desc: string
+  tone: "emerald" | "rose"
+}) {
+  const activeClass =
+    tone === "emerald"
+      ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+      : "border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition " +
+        (active ? activeClass : "border-input bg-background hover:bg-muted")
+      }
+    >
+      <span className="text-sm font-semibold">
+        <span aria-hidden="true" className="mr-1">
+          {emoji}
+        </span>
+        {title}
+      </span>
+      <span className="text-[11px] font-normal text-muted-foreground">{desc}</span>
+    </button>
+  )
+}
+
+const inputClass =
+  "w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+
+function cnTab(active: boolean, key?: SubTab) {
+  const activeColor: Record<SubTab, string> = {
+    expense: "bg-rose-500 text-white shadow-sm",
+    income: "bg-emerald-500 text-white shadow-sm",
+    asset: "bg-blue-500 text-white shadow-sm",
+    debt: "bg-amber-500 text-white shadow-sm",
+  }
+  return [
+    "flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium transition-all sm:text-sm",
+    active
+      ? key
+        ? activeColor[key]
+        : "bg-background text-foreground shadow-sm"
+      : "text-muted-foreground hover:text-foreground",
+  ].join(" ")
+}
