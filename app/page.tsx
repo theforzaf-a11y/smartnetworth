@@ -435,10 +435,14 @@ function AppShell() {
           />
         ) : tab === "profesi" ? (
           <TabPajakProfesi
-            transactions={filterTxByEntity(finance.transactions, "pribadi")}
-            saldoAwalProfesi={finance.saldoAwalProfesi.pribadi}
-            onSaveSaldoProfesi={(value) => finance.setSaldoAwalProfesi("pribadi", value)}
-          />
+  transactions={filterTxByEntity(finance.transactions, "pribadi")}
+  saldoAwalProfesi={finance.saldoAwalProfesi.pribadi}
+  onSaveSaldoProfesi={(value) => finance.setSaldoAwalProfesi("pribadi", value)}
+  saldoAwalBuktiPotong={finance.saldoAwalBuktiPotong.pribadi}
+  onSaveSaldoBuktiPotong={(value) => finance.setSaldoAwalBuktiPotong("pribadi", value)}
+  buktiPotongBerjalan={finance.buktiPotongBerjalan.pribadi}
+  onSaveBuktiPotongBerjalan={(value) => finance.setBuktiPotongBerjalan("pribadi", value)}
+/>
         ) : (
           <TabLabaRugi
             transactions={finance.transactions}
