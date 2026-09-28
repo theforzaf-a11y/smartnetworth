@@ -62,12 +62,22 @@ interface TabPajakProfesiProps {
   /** Persisted "Akumulasi Penghasilan s.d. Bulan Lalu" untuk penghasilan profesi. */
   saldoAwalProfesi: number
   onSaveSaldoProfesi: (value: number) => void
+  /** Persisted "Akumulasi Bukti Potong PPh s.d. Bulan Lalu" (input manual). */
+  saldoAwalBuktiPotong: number
+  onSaveSaldoBuktiPotong: (value: number) => void
+  /** Persisted "Bukti Potong PPh Periode Berjalan" (input manual). */
+  buktiPotongBerjalan: number
+  onSaveBuktiPotongBerjalan: (value: number) => void
 }
 
 export function TabPajakProfesi({
   transactions,
   saldoAwalProfesi,
   onSaveSaldoProfesi,
+  saldoAwalBuktiPotong,
+  onSaveSaldoBuktiPotong,
+  buktiPotongBerjalan,
+  onSaveBuktiPotongBerjalan,
 }: TabPajakProfesiProps) {
   const [profesiId, setProfesiId] = useState<(typeof PROFESI_PRESET)[number]["id"]>("tenaga-ahli")
   const [customPct, setCustomPct] = useState("50")
@@ -87,19 +97,38 @@ export function TabPajakProfesi({
 
   // Akumulasi penghasilan s.d. bulan lalu (saldo awal) — tersimpan permanen di database
   const [priorInput, setPriorInput] = useState(saldoAwalProfesi ? String(saldoAwalProfesi) : "")
+  // Akumulasi bukti potong s.d. bulan lalu (saldo awal) — tersimpan permanen di database
+  const [priorBPInput, setPriorBPInput] = useState(saldoAwalBuktiPotong ? String(saldoAwalBuktiPotong) : "")
   // Penghasilan periode berjalan bila diinput manual
   const [manualCurrent, setManualCurrent] = useState("")
-  // Toggle: gunakan penghasilan kategori Freelance dari Catat Keuangan sebagai periode berjalan
+  // Bukti potong periode berjalan — input manual, tersimpan permanen
+  const [currentBPInput, setCurrentBPInput] = useState(buktiPotongBerjalan ? String(buktiPotongBerjalan) : "")
+  // Toggle: gunakan data kategori Freelance dari Catat Keuangan sebagai periode berjalan
   const [useAppIncome, setUseAppIncome] = useState(true)
 
   useEffect(() => {
     setPriorInput(saldoAwalProfesi ? String(saldoAwalProfesi) : "")
   }, [saldoAwalProfesi])
 
+  useEffect(() => {
+    setPriorBPInput(saldoAwalBuktiPotong ? String(saldoAwalBuktiPotong) : "")
+  }, [saldoAwalBuktiPotong])
+
+  useEffect(() => {
+    setCurrentBPInput(buktiPotongBerjalan ? String(buktiPotongBerjalan) : "")
+  }, [buktiPotongBerjalan])
+
   const prior = Number(priorInput) || 0
   const current = useAppIncome ? periodeIncome : Number(manualCurrent) || 0
 
-  const bruto = prior + current
+  const priorBP = Number(priorBPInput) || 0
+  const currentBP = Number(currentBPInput) || 0
+  const totalBP = priorBP + currentBP
+
+  // Penghasilan yang dicatat = uang diterima (netto setelah dipotong PPh).
+  // Bruto untuk perhitungan pajak = penghasilan diterima + bukti potong.
+  const brutoDiterima = prior + current
+  const bruto = brutoDiterima + totalBP
   const netto = Math.round(bruto * (pct / 100))
 
   const ptkp = useMemo(() => {
@@ -109,7 +138,11 @@ export function TabPajakProfesi({
 
   const pkp = Math.max(0, netto - ptkp)
   const { total: taxYear, rows: taxRows } = useMemo(() => progressiveTax(pkp), [pkp])
-  const taxMonthly = Math.round(taxYear / 12)
+
+  // PPh terutang dikurangi bukti potong: positif = kurang bayar, negatif = lebih bayar
+  const selisih = taxYear - totalBP
+  const lebihBayar = selisih < 0
+  const taxMonthlyNet = Math.round(Math.max(0, selisih) / 12)
 
   const statusLabel = `${kawin ? "K" : "TK"}/${Math.min(tanggungan, MAX_TANGGUNGAN)}`
 
@@ -122,7 +155,7 @@ export function TabPajakProfesi({
           </span>
           <div>
             <h3 className="text-base font-semibold">Kalkulator Pajak Profesi (NPPN)</h3>
-            <p className="text-xs text-muted-foreground">Norma Penghitungan Penghasilan Neto — Pasal 14 UU PPh</p>
+            <p className="text-xs text-muted-foreground">Norma Penghitungan Penghasilan Neto — Pasal 17 UU PPh</p>
           </div>
         </div>
 
@@ -184,6 +217,25 @@ export function TabPajakProfesi({
         </div>
 
         <div className="mt-4">
+          <label htmlFor="prior-bp" className="mb-1.5 block text-sm font-medium">
+            Akumulasi Bukti Potong s.d. Bulan Lalu
+            <span className="ml-1 font-normal text-muted-foreground">(Saldo Awal)</span>
+          </label>
+          <MoneyInput
+            id="prior-bp"
+            value={priorBPInput}
+            onChange={setPriorBPInput}
+            onBlurCommit={() => onSaveSaldoBuktiPotong(Number(priorBPInput) || 0)}
+            placeholder="0"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Total PPh yang sudah dipotong pihak pembayar jasa (sesuai bukti potong) sejak awal tahun
+            pajak hingga bulan lalu. Isi bila Anda baru mulai memakai aplikasi di tengah tahun. Angka
+            ini tersimpan otomatis.
+          </p>
+        </div>
+
+        <div className="mt-4">
           <div className="mb-1.5 flex items-center justify-between">
             <label htmlFor="current-profesi" className="block text-sm font-medium">
               Penghasilan Periode Berjalan{" "}
@@ -215,8 +267,10 @@ export function TabPajakProfesi({
           <p className="mt-2 text-xs text-muted-foreground">
             Penghasilan periode berjalan menghitung pemasukan berkategori{" "}
             <span className="font-medium text-foreground">Freelance</span> (praktik/jasa profesi):{" "}
-            {formatRp(periodeIncome)}. Pemasukan lain (Penjualan, Gaji, Bonus, Investasi, dll.) tidak
-            dihitung. Catat penghasilan praktik/jasa Anda di tab "Catat Keuangan" dengan kategori{" "}
+            {formatRp(periodeIncome)}. Catat nominal yang benar-benar Anda terima (setelah dipotong
+            PPh); potongan PPh-nya diisi terpisah sebagai bukti potong. Pemasukan lain (Penjualan,
+            Gaji, Bonus, Investasi, dll.) tidak dihitung. Catat penghasilan praktik/jasa Anda di tab
+            "Catat Keuangan" dengan kategori{" "}
             <span className="font-medium text-foreground">Freelance</span> agar otomatis masuk ke sini.
           </p>
         ) : null}
@@ -227,12 +281,22 @@ export function TabPajakProfesi({
         <div className="mt-3 space-y-2.5">
           <Row label="Akumulasi penghasilan s.d. bulan lalu" value={formatRp(prior)} />
           <Row
-            label={useAppIncome ? "Penghasilan profesi periode berjalan" : "Penghasilan periode berjalan"}
+            label={useAppIncome ? "Penghasilan netto profesi periode berjalan" : "Penghasilan netto periode berjalan"}
             value={`+ ${formatRp(current)}`}
           />
           <div className="border-t border-border pt-2.5">
-            <Row label="Total penghasilan bruto setahun" value={formatRp(bruto)} bold />
+            <Row label="Total penghasilan bruto setahun" value={formatRp(brutoDiterima)} bold />
           </div>
+        </div>
+        <div className="mt-4 space-y-2.5">
+          <Row label="Akumulasi bukti potong PPh s.d. bulan lalu" value={formatRp(priorBP)} />
+          <Row label="Bukti potong PPh periode berjalan" value={`+ ${formatRp(currentBP)}`} />
+          <div className="border-t border-border pt-2.5">
+            <Row label="Total bukti potong PPh" value={formatRp(totalBP)} bold />
+          </div>
+        </div>
+        <div className="mt-4 border-t border-border pt-3">
+          <Row label="Total penghasilan bruto setahun (termasuk bukti potong)" value={formatRp(bruto)} bold />
         </div>
       </Card>
 
@@ -259,22 +323,47 @@ export function TabPajakProfesi({
                 {profesiLines.map((t) => (
                   <tr key={t.id} className="border-b border-border/50 last:border-0">
                     <td className="py-2 pr-3 font-medium">{t.title}</td>
-                    <td className="py-2 pr-3 text-muted-foreground">{formatTaxDate(t.date)}</td>
-                    <td className="py-2 text-right font-semibold">{formatRp(t.amount)}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">{formatTaxDate(t.date)}</td>
+                    <td className="py-2 whitespace-nowrap text-right font-semibold">{formatRp(t.amount)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
                 <tr className="border-t border-border font-semibold">
                   <td className="py-2 pr-3" colSpan={2}>
-                    Total Penghasilan Profesi
+                    Total Penghasilan Netto Profesi
                   </td>
-                  <td className="py-2 text-right text-fuchsia-700">{formatRp(periodeIncome)}</td>
+                  <td className="py-2 whitespace-nowrap text-right text-fuchsia-700">{formatRp(periodeIncome)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
+
+        <div className="mt-4 border-t border-border pt-4">
+          <label htmlFor="current-bp" className="mb-1.5 block text-sm font-medium">
+            Total Bukti Potong PPh Periode Berjalan
+          </label>
+          <MoneyInput
+            id="current-bp"
+            value={currentBPInput}
+            onChange={setCurrentBPInput}
+            onBlurCommit={() => onSaveBuktiPotongBerjalan(Number(currentBPInput) || 0)}
+            placeholder="0"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Isi manual sesuai bukti potong dari pihak pembayar (misalnya rumah sakit). Nominal yang
+            dicatat di Catat Keuangan adalah uang yang Anda terima setelah dipotong PPh. Angka ini
+            tersimpan otomatis.
+          </p>
+          <div className="mt-3">
+            <Row
+              label="Total penghasilan bruto periode berjalan"
+              value={formatRp(current + currentBP)}
+              bold
+            />
+          </div>
+        </div>
       </Card>
 
       <Card>
@@ -364,19 +453,41 @@ export function TabPajakProfesi({
       ) : null}
 
       <Card>
-        <div className="rounded-xl border border-fuchsia-100 bg-fuchsia-50 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">PPh Terutang (setahun)</span>
-            <span className="text-2xl font-bold text-fuchsia-700">{formatRp(taxYear)}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between border-t border-fuchsia-200/70 pt-2">
-            <span className="text-xs text-muted-foreground">Estimasi rata-rata per bulan</span>
-            <span className="text-sm font-semibold">{formatRp(taxMonthly)}</span>
-          </div>
+        <div className="space-y-2.5">
+          <Row label="PPh Terutang (Pasal 17)" value={formatRp(taxYear)} />
+          <Row label="Bukti potong (setahun)" value={`- ${formatRp(totalBP)}`} />
         </div>
+
+        <div
+          className={`mt-3 rounded-xl border p-4 ${
+            lebihBayar ? "border-emerald-200 bg-emerald-50" : "border-fuchsia-100 bg-fuchsia-50"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">
+              {lebihBayar ? "PPh Lebih Bayar (setahun)" : "PPh Terutang (setahun)"}
+            </span>
+            <span className={`text-2xl font-bold ${lebihBayar ? "text-emerald-700" : "text-fuchsia-700"}`}>
+              {formatRp(Math.abs(selisih))}
+            </span>
+          </div>
+          {!lebihBayar ? (
+            <div className="mt-2 flex items-center justify-between border-t border-fuchsia-200/70 pt-2">
+              <span className="text-xs text-muted-foreground">Estimasi rata-rata per bulan</span>
+              <span className="text-sm font-semibold">{formatRp(taxMonthlyNet)}</span>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Bukti potong melebihi PPh terutang; kelebihan dapat dikompensasikan atau diminta kembali
+              (restitusi) melalui SPT Tahunan.
+            </p>
+          )}
+        </div>
+
         {bruto > 0 && pkp === 0 ? (
           <p className="mt-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400">
             Penghasilan neto masih di bawah PTKP — belum ada PPh terutang.
+            {totalBP > 0 ? " Bukti potong yang sudah dipotong dapat diminta kembali lewat SPT Tahunan." : ""}
           </p>
         ) : null}
       </Card>
@@ -390,8 +501,9 @@ export function TabPajakProfesi({
             konsultan, dll.) dan memenuhi syarat boleh menghitung penghasilan neto memakai persentase
             norma dari Direktorat Jenderal Pajak, alih-alih pembukuan penuh. Persentase norma berbeda
             menurut jenis pekerjaan &amp; wilayah (KLU). Hasil penghasilan neto dikurangi PTKP, sisanya
-            dikenai tarif progresif Pasal 17 UU PPh. Perhitungan ini adalah estimasi; konsultasikan
-            dengan konsultan pajak untuk kepastian & penentuan KLU/persentase norma yang berlaku.
+            dikenai tarif progresif Pasal 17 UU PPh, lalu dikurangi bukti potong yang telah dipotong
+            pihak pembayar. Perhitungan ini adalah estimasi; konsultasikan dengan konsultan pajak untuk
+            kepastian & penentuan KLU/persentase norma yang berlaku.
           </div>
         </div>
       </Card>
