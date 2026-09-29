@@ -11,7 +11,9 @@ import {
   type Entity,
   formatRp,
   netCashflow,
+  sisaKas,
   totalAssetTransfers,
+  totalHartaNonKas,
   totalLiquidAssets,
   type Transaction,
 } from "@/lib/finance"
@@ -24,9 +26,14 @@ interface SaldoAwalByEntity {
 
 interface TabHartaProps {
   transactions: Transaction[]
+  /** Saldo awal kas (uang tunai/bank) untuk entitas yang sedang aktif di filter atas. */
   saldoAwal: number
   saldoAwalByEntity: SaldoAwalByEntity
   onSaveSaldo: (entity: Entity, value: number) => void
+  /** Saldo awal harta non-kas (emas, deposito, dll — di luar kas) untuk entitas aktif. */
+  saldoAwalAset: number
+  saldoAwalAsetByEntity: SaldoAwalByEntity
+  onSaveSaldoAset: (entity: Entity, value: number) => void
   defaultEntity?: Entity
 }
 
@@ -35,37 +42,48 @@ export function TabHarta({
   saldoAwal,
   saldoAwalByEntity,
   onSaveSaldo,
+  saldoAwalAset,
+  saldoAwalAsetByEntity,
+  onSaveSaldoAset,
   defaultEntity = "pribadi",
 }: TabHartaProps) {
   const [editing, setEditing] = useState(false)
   const [entity, setEntity] = useState<Entity>(defaultEntity)
-  const [draft, setDraft] = useState(String(saldoAwalByEntity[defaultEntity] || ""))
+  const [draftKas, setDraftKas] = useState(String(saldoAwalByEntity[defaultEntity] || ""))
+  const [draftAset, setDraftAset] = useState(String(saldoAwalAsetByEntity[defaultEntity] || ""))
 
   const total = useMemo(
-    () => totalLiquidAssets(transactions, saldoAwal),
-    [transactions, saldoAwal],
+    () => totalLiquidAssets(transactions, saldoAwal, saldoAwalAset),
+    [transactions, saldoAwal, saldoAwalAset],
   )
   const transfers = useMemo(() => totalAssetTransfers(transactions), [transactions])
   const arusKas = useMemo(() => netCashflow(transactions), [transactions])
+  const kasAkhir = useMemo(() => sisaKas(transactions, saldoAwal), [transactions, saldoAwal])
+  const hartaNonKasAkhir = useMemo(
+    () => totalHartaNonKas(transactions, saldoAwalAset),
+    [transactions, saldoAwalAset],
+  )
   const dist = useMemo(
-    () => assetDistribution(transactions, saldoAwal),
-    [transactions, saldoAwal],
+    () => assetDistribution(transactions, saldoAwal, saldoAwalAset),
+    [transactions, saldoAwal, saldoAwalAset],
   )
 
   function startEditing() {
     setEntity(defaultEntity)
-    setDraft(String(saldoAwalByEntity[defaultEntity] || ""))
+    setDraftKas(String(saldoAwalByEntity[defaultEntity] || ""))
+    setDraftAset(String(saldoAwalAsetByEntity[defaultEntity] || ""))
     setEditing(true)
   }
 
   function handleEntityChange(next: Entity) {
     setEntity(next)
-    setDraft(String(saldoAwalByEntity[next] || ""))
+    setDraftKas(String(saldoAwalByEntity[next] || ""))
+    setDraftAset(String(saldoAwalAsetByEntity[next] || ""))
   }
 
   function commit() {
-    const v = Math.max(0, Math.round(Number(draft) || 0))
-    onSaveSaldo(entity, v)
+    onSaveSaldo(entity, Math.max(0, Math.round(Number(draftKas) || 0)))
+    onSaveSaldoAset(entity, Math.max(0, Math.round(Number(draftAset) || 0)))
     setEditing(false)
   }
 
@@ -77,35 +95,57 @@ export function TabHarta({
           <span className="flex size-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
             <Wallet className="size-4" />
           </span>
-          <span className="text-sm font-medium">Saldo Akhir Harta / Kas</span>
+          <span className="text-sm font-medium">Saldo Akhir Harta</span>
         </div>
         <p className="mt-2 text-3xl font-bold tracking-tight text-violet-700 sm:text-4xl">
           {formatRp(total)}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-          <BannerStat label="Saldo Awal" value={formatRp(saldoAwal)} />
-          <BannerStat label="Transfer Aset" value={formatRp(transfers)} />
+          <BannerStat label="Sisa Kas" value={formatRp(kasAkhir)} />
+          <BannerStat label="Harta Non-Kas" value={formatRp(hartaNonKasAkhir)} />
         </div>
       </Card>
 
-      {/* Rollover breakdown: Saldo Awal + Transfer/Investasi + Arus Kas Bersih = Saldo Akhir */}
+      {/* Rollover breakdown: Saldo Awal Kas + Saldo Awal Harta Non-Kas + Arus Kas Bersih = Saldo Akhir Harta */}
       <Card>
         <CardTitle>Rincian Saldo Akhir Harta</CardTitle>
         <p className="mb-3 mt-0.5 text-xs text-muted-foreground">
-          Saldo awal + transfer/investasi + arus kas bersih
+          Saldo awal kas + saldo awal harta non-kas + arus kas bersih (transfer/investasi hanya
+          memindahkan nilai dari kas ke harta non-kas, jadi tidak mengubah total)
         </p>
         <div className="space-y-1">
-          <BreakdownRow label="Saldo Awal Harta" value={saldoAwal} />
-          <BreakdownRow label="Transfer / Investasi" value={transfers} op="+" />
-          <BreakdownRow label="Arus Kas Bersih" value={arusKas} op="+" signed />
+          <BreakdownRow label="Saldo Awal Kas" value={saldoAwal} />
+          <BreakdownRow label="Saldo Awal Harta Non-Kas" value={saldoAwalAset} op="+" />
+          <BreakdownRow label="Arus Kas Bersih (Pemasukan − Pengeluaran)" value={arusKas} op="+" signed />
           <div className="my-1 border-t border-dashed border-border" />
           <BreakdownRow label="Saldo Akhir Harta" value={total} op="=" emphasize tone="violet" />
+        </div>
+
+        <div className="mt-4 space-y-1 border-t border-border pt-3">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Rincian Sisa Kas</p>
+          <BreakdownRow label="Saldo Awal Kas" value={saldoAwal} />
+          <BreakdownRow label="Arus Kas Bersih" value={arusKas} op="+" signed />
+          <BreakdownRow label="Transfer / Investasi ke Harta" value={transfers} op="−" />
+          <div className="my-1 border-t border-dashed border-border" />
+          <BreakdownRow label="Sisa Kas" value={kasAkhir} op="=" emphasize />
+        </div>
+
+        <div className="mt-4 space-y-1 border-t border-border pt-3">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Rincian Harta Non-Kas</p>
+          <BreakdownRow label="Saldo Awal Harta Non-Kas" value={saldoAwalAset} />
+          <BreakdownRow label="Transfer / Investasi ke Harta" value={transfers} op="+" />
+          <div className="my-1 border-t border-dashed border-border" />
+          <BreakdownRow label="Total Harta Non-Kas" value={hartaNonKasAkhir} op="=" emphasize />
         </div>
       </Card>
 
       {/* Editable saldo awal */}
       <Card>
-        <CardTitle>Saldo Awal Harta / Kas Bulan Lalu</CardTitle>
+        <CardTitle>Saldo Awal Bulan Lalu</CardTitle>
+        <p className="mb-1 mt-0.5 text-xs text-muted-foreground">
+          Diisi terpisah: kas/bank dan harta non-kas (emas, deposito, saham, dll.) yang sudah
+          dipegang sebelum aplikasi ini dipakai.
+        </p>
 
         {editing ? (
           <div className="mt-3 space-y-3">
@@ -115,42 +155,75 @@ export function TabHarta({
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                Saldo Awal Harta — {ENTITY_LABEL[entity]} (Rp)
+                Saldo Awal Kas — {ENTITY_LABEL[entity]} (Rp)
               </label>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-                    Rp
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={draft}
-                    autoFocus
-                    onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.nativeEvent.isComposing) commit()
-                    }}
-                    className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
-                  />
-                </div>
-                <Button size="lg" onClick={commit}>
-                  <Check className="size-4" />
-                  Simpan
-                </Button>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  Rp
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={draftKas}
+                  autoFocus
+                  onChange={(e) => setDraftKas(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) commit()
+                  }}
+                  className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+                />
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
-              Batal
-            </Button>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium">
+                Saldo Awal Harta Non-Kas — {ENTITY_LABEL[entity]} (Rp)
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                  Rp
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={draftAset}
+                  onChange={(e) => setDraftAset(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing) commit()
+                  }}
+                  className="w-full rounded-lg border border-input bg-background py-2 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Emas, deposito, saham, reksadana, dll. yang sudah dimiliki sebelum mulai memakai
+                aplikasi ini — di luar kas/bank.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button size="lg" onClick={commit}>
+                <Check className="size-4" />
+                Simpan
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+                Batal
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="mt-3 flex items-center gap-2">
-            <p className="flex-1 text-2xl font-bold">{formatRp(saldoAwal)}</p>
-            <Button variant="outline" size="lg" onClick={startEditing}>
-              <Pencil className="size-4" />
-              Ubah
-            </Button>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-muted-foreground">Saldo Awal Kas</p>
+              <p className="mt-0.5 text-xl font-bold">{formatRp(saldoAwal)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Saldo Awal Harta Non-Kas</p>
+              <p className="mt-0.5 text-xl font-bold">{formatRp(saldoAwalAset)}</p>
+            </div>
+            <div className="col-span-2">
+              <Button variant="outline" size="lg" onClick={startEditing}>
+                <Pencil className="size-4" />
+                Ubah
+              </Button>
+            </div>
           </div>
         )}
       </Card>
