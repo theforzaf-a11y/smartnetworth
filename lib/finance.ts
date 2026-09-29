@@ -205,14 +205,36 @@ export function totalAssetTransfers(txs: Transaction[]): number {
   return sumBy(txs, (t) => t.type === "asset")
 }
 
+/** Cash flow from income/expenses only. Excludes asset transfers — those move cash into
+ *  non-cash assets, they are not spending, and are accounted for separately (see sisaKas). */
 export function netCashflow(txs: Transaction[]): number {
   return totalIncome(txs) - totalCashExpense(txs)
 }
 
-export function totalLiquidAssets(txs: Transaction[], saldoAwal: number): number {
-  return saldoAwal + totalAssetTransfers(txs) + netCashflow(txs)
+/** Remaining cash (uang tunai/bank): starting cash + income − cash expenses − transfers/investments
+ *  moved into non-cash assets (gold, deposito, saham, dll). */
+export function sisaKas(txs: Transaction[], saldoAwalKas: number): number {
+  return saldoAwalKas + netCashflow(txs) - totalAssetTransfers(txs)
 }
 
+/** Non-cash assets: starting non-cash balance + transfers/investments made into them (at cost). */
+export function totalHartaNonKas(txs: Transaction[], saldoAwalAset: number): number {
+  return saldoAwalAset + totalAssetTransfers(txs)
+}
+
+/** Total liquid assets = remaining cash + non-cash assets. Asset transfers cancel out of this total
+ *  (they only move value from cash to non-cash), so it equals saldoAwalKas + saldoAwalAset + netCashflow. */
+export function totalLiquidAssets(
+  txs: Transaction[],
+  saldoAwalKas: number,
+  saldoAwalAset: number,
+): number {
+  return sisaKas(txs, saldoAwalKas) + totalHartaNonKas(txs, saldoAwalAset)
+}
+
+/** @deprecated Superseded by totalLiquidAssets(txs, saldoAwalKas, saldoAwalAset), which correctly
+ *  separates cash from non-cash assets instead of double-counting asset transfers. Kept only in
+ *  case older code still calls the single-saldoAwal signature. */
 export function netWorth(txs: Transaction[], saldoAwal: number): number {
   return saldoAwal + totalAssetTransfers(txs) + netCashflow(txs)
 }
@@ -238,7 +260,7 @@ export function netWorthWithLiabilities(
   saldoAwal: number,
   liabilities: Liability[],
 ): number {
-  return totalLiquidAssets(txs, saldoAwal) - totalLiabilities(liabilities)
+  return totalLiquidAssets(txs, saldoAwal, 0) - totalLiabilities(liabilities)
 }
 
 function lastDayOfMonth(year: number, monthIdx: number): number {
@@ -322,9 +344,18 @@ export interface AssetSlice {
   value: number
 }
 
-export function assetDistribution(txs: Transaction[], saldoAwal: number): AssetSlice[] {
-  const kas = saldoAwal + netCashflow(txs)
+/** Distribution for the "Distribusi Harta Lancar" donut chart: remaining cash, any leftover
+ *  non-cash starting balance not tied to a category, plus each asset category's total. */
+export function assetDistribution(
+  txs: Transaction[],
+  saldoAwalKas: number,
+  saldoAwalAset: number,
+): AssetSlice[] {
+  const kas = sisaKas(txs, saldoAwalKas)
   const slices: AssetSlice[] = [{ name: "Kas / Rekening", value: Math.max(kas, 0) }]
+  if (saldoAwalAset > 0) {
+    slices.push({ name: "Saldo Awal Harta Non-Kas", value: saldoAwalAset })
+  }
   for (const cat of ASSET_CATEGORIES) {
     const v = sumBy(txs, (t) => t.type === "asset" && t.category === cat)
     if (v > 0) slices.push({ name: cat, value: v })
