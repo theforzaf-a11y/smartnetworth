@@ -38,10 +38,13 @@ import {
   monthlyIncomeExpense,
   MONTH_NAMES_ID,
   receivableTotals,
-  totalExpense,
-  totalIncome,
+  sisaKas,
+  totalAssetTransfers,
   totalCashExpense,
   totalCreditExpense,
+  totalExpense,
+  totalHartaNonKas,
+  totalIncome,
   totalLiabilities,
   upcomingDueAlerts,
   type DueAlert,
@@ -53,7 +56,10 @@ import { Button } from "@/components/ui/button"
 
 interface TabRingkasanProps {
   transactions: Transaction[]
+  /** Saldo awal kas (uang tunai/bank) untuk cakupan filter aktif. */
   saldoAwal: number
+  /** Saldo awal harta non-kas (emas, deposito, dll) untuk cakupan filter aktif. */
+  saldoAwalAset: number
   saldoAwalHutang: number
   saldoAwalPiutang: number
   liabilities: Liability[]
@@ -79,6 +85,7 @@ function EquationSign({ symbol }: { symbol: string }) {
 export function TabRingkasan({
   transactions,
   saldoAwal,
+  saldoAwalAset,
   saldoAwalHutang,
   saldoAwalPiutang,
   liabilities,
@@ -96,22 +103,27 @@ export function TabRingkasan({
     const expense = totalExpense(transactions)
     const cashExpense = totalCashExpense(transactions)
     const creditExpense = totalCreditExpense(transactions)
+    const transfers = totalAssetTransfers(transactions)
     const debt = saldoAwalHutang + totalLiabilities(liabilities)
     const piutang = saldoAwalPiutang + receivableTotals(receivables).active
-    const sisa = saldoAwal + income - cashExpense
-    const totalHarta = sisa + piutang
+    // Sisa kas: transfer/investasi ke harta non-kas (emas, dll) mengurangi kas, bukan pengeluaran biasa.
+    const sisa = sisaKas(transactions, saldoAwal)
+    const hartaNonKas = totalHartaNonKas(transactions, saldoAwalAset)
+    const totalHarta = sisa + hartaNonKas + piutang
     return {
       income,
       expense,
       cashExpense,
       creditExpense,
+      transfers,
       sisa,
+      hartaNonKas,
       totalHarta,
       debt,
       piutang,
       netWorth: totalHarta - debt,
     }
-  }, [transactions, saldoAwal, saldoAwalHutang, saldoAwalPiutang, liabilities, receivables])
+  }, [transactions, saldoAwal, saldoAwalAset, saldoAwalHutang, saldoAwalPiutang, liabilities, receivables])
 
   const dueAlerts = useMemo(() => upcomingDueAlerts(liabilities, 5), [liabilities])
 
@@ -150,41 +162,47 @@ export function TabRingkasan({
         <DueDateAlert alerts={dueAlerts} onPayNow={onPayNow} />
       ) : null}
 
-      {/* Simple net worth equation: cash + receivables - liabilities */}
+      {/* Net worth equation: cash + non-cash assets + receivables - liabilities */}
       <Card className="border-primary/15 bg-primary/[0.02]">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <CardTitle>Ringkasan Kekayaan</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">Ikuti alurnya: uang yang tersedia + piutang - hutang</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ikuti alurnya: uang tersedia + harta non-kas + piutang - hutang
+            </p>
           </div>
           <span className="hidden rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary sm:inline-flex">Kas &amp; kewajiban</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1.15fr] lg:items-stretch">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1.15fr] lg:items-stretch">
           <StatCard label="Sisa Uang (Kas)" value={formatRp(stats.sisa)} icon={<Wallet className="size-4" />} accent="blue" colorValue />
+          <EquationSign symbol="+" />
+          <StatCard label="Harta Non-Kas" value={formatRp(stats.hartaNonKas)} icon={<Coins className="size-4" />} accent="violet" colorValue />
           <EquationSign symbol="+" />
           <StatCard label="Total Piutang" value={formatRp(stats.piutang)} icon={<HandCoins className="size-4" />} accent="sky" colorValue />
           <EquationSign symbol="−" />
           <StatCard label="Total Hutang" value={formatRp(stats.debt)} icon={<Scale className="size-4" />} accent="rose" colorValue />
           <EquationSign symbol="=" />
-          <StatCard label="Kekayaan Bersih" value={formatRp(stats.netWorth)} icon={<Landmark className="size-4" />} accent={stats.netWorth < 0 ? "rose" : "emerald"} colorValue subtitle="(Sisa Uang + Piutang) - Hutang" />
+          <StatCard label="Kekayaan Bersih" value={formatRp(stats.netWorth)} icon={<Landmark className="size-4" />} accent={stats.netWorth < 0 ? "rose" : "emerald"} colorValue subtitle="(Kas + Non-Kas + Piutang) - Hutang" />
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">Total Harta = Sisa Uang + Total Piutang = {formatRp(stats.totalHarta)}</p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Total Harta = Sisa Uang + Harta Non-Kas + Total Piutang = {formatRp(stats.totalHarta)}
+        </p>
       </Card>
 
-      {/* Cash flow equation: Saldo Awal Kas + Pemasukan Kas − Pengeluaran Kas = Sisa Uang (Kas) */}
+      {/* Cash flow equation: Saldo Awal Kas + Pemasukan − Pengeluaran − Transfer/Investasi = Sisa Uang (Kas) */}
       <Card className="border-blue-200/60 bg-blue-500/[0.02] dark:border-blue-500/25">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <CardTitle>Arus Kas (Cash Flow)</CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              Saldo awal kas + pemasukan kas − pengeluaran kas
+              Saldo awal kas + pemasukan − pengeluaran − transfer/investasi ke harta
             </p>
           </div>
           <span className="hidden rounded-full bg-blue-500/10 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 sm:inline-flex">
             Kas/Bank saja
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1.15fr] lg:items-stretch">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1.15fr] lg:items-stretch">
           <StatCard
             label="Saldo Awal Kas"
             value={formatRp(saldoAwal)}
@@ -208,6 +226,15 @@ export function TabRingkasan({
             accent="rose"
             colorValue
             subtitle="Tanpa Kartu Kredit/PayLater"
+          />
+          <EquationSign symbol="−" />
+          <StatCard
+            label="Transfer / Investasi ke Harta"
+            value={formatRp(stats.transfers)}
+            icon={<Coins className="size-4" />}
+            accent="violet"
+            colorValue
+            subtitle="Beli emas, deposito, dll."
           />
           <EquationSign symbol="=" />
           <StatCard
