@@ -13,6 +13,7 @@ import {
   Scale,
   HandCoins,
   Receipt,
+  Briefcase,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -61,9 +62,16 @@ const PAGE_GUIDES = [
   {
     icon: Receipt,
     color: "text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-500/15",
-    title: "Pajak",
+    title: "Pajak UMKM",
     desc:
       "Rekap yang membantu memperkirakan kewajiban pajak dari transaksi Bisnis yang sudah dicatat, sehingga tidak perlu menghitung manual satu per satu.",
+  },
+  {
+    icon: Briefcase,
+    color: "text-fuchsia-600 dark:text-fuchsia-400 bg-fuchsia-100 dark:bg-fuchsia-500/15",
+    title: "Pajak Profesi",
+    desc:
+      "Untuk pekerja profesi bebas (dokter, notaris, pengacara/advokat, konsultan, dll.) yang dikenakan PPh Pasal 14 (NPPN). Penghasilan profesi otomatis masuk ke sini dari transaksi Pemasukan berentitas Pribadi dengan kategori 'Freelance'. Anda perlu mengisi manual 3 angka: 'Akumulasi Penghasilan s.d. Bulan Lalu', 'Akumulasi Bukti Potong PPh s.d. Bulan Lalu', dan 'Bukti Potong PPh Periode Berjalan' (dari bukti potong yang diberikan pemberi kerja/klien), agar estimasi PPh Kurang/Lebih Bayar terhitung otomatis.",
   },
 ]
 
@@ -71,6 +79,14 @@ const FAQ_ITEMS = [
   {
     q: "Bagaimana cara mencatat transaksi baru?",
     a: "Buka tab 'Catat Keuangan', pilih jenis transaksi (Pengeluaran, Pemasukan, Transfer/Investasi Harta, atau Bayar Hutang/Cicilan), lalu isi Judul, Nominal, Tanggal, dan Kategori. Anda juga bisa memakai Pindai Struk dengan AI (foto/upload struk) atau Catat dengan Suara supaya form terisi otomatis.",
+  },
+  {
+    q: "Bagaimana cara mencatat penghasilan profesi (dokter, notaris, pengacara/advokat, konsultan, dll)?",
+    a: "Buka tab 'Catat Keuangan' → pilih jenis 'Pemasukan' → pilih entitas 'Pribadi' → pada Kategori pilih 'Freelance'. Catat sebesar nilai yang benar-benar Anda terima (nilai bersih/netto setelah dipotong PPh oleh pemberi kerja atau klien, bukan nilai kotor sebelum potongan). Saat kategori 'Freelance' dipilih, entitas akan otomatis terkunci ke 'Pribadi' supaya penghasilan ini tidak tercampur dengan omzet UMKM/Bisnis. Setiap transaksi ini otomatis muncul di halaman 'Pajak Profesi' bagian 'Penghasilan Periode Berjalan'.",
+  },
+  {
+    q: "Bagaimana cara mengisi halaman Pajak Profesi?",
+    a: "Halaman ini khusus untuk pekerja profesi bebas (dokter, notaris, pengacara/advokat, konsultan, dll.) yang kena PPh Pasal 14 (NPPN). Penghasilan periode berjalan akan terisi otomatis dari transaksi 'Freelance' di Catat Keuangan. Anda tetap perlu isi manual 3 angka: (1) 'Akumulasi Penghasilan s.d. Bulan Lalu' — total penghasilan profesi tahun berjalan sebelum mulai pakai aplikasi ini, (2) 'Akumulasi Bukti Potong PPh s.d. Bulan Lalu' — total PPh yang sudah dipotong pemberi kerja/klien sebelum mulai pakai aplikasi ini, dan (3) 'Bukti Potong PPh Periode Berjalan' — total PPh yang dipotong pada bukti potong yang Anda terima bulan ini. Setelah semua terisi, aplikasi otomatis menghitung PPh Terutang lalu menampilkan status 'PPh Kurang Bayar' atau (hijau) 'PPh Lebih Bayar'.",
   },
   {
     q: "Kenapa Kategori berubah otomatis saat saya mengetik Judul/Keterangan?",
@@ -86,7 +102,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Apa beda entitas Pribadi dan Bisnis?",
-    a: "Setiap transaksi dicatat di bawah salah satu entitas: Pribadi atau Bisnis. Ini memudahkan memisahkan keuangan pribadi dan usaha dalam satu aplikasi. Gunakan tombol Semua / Pribadi / Bisnis di bagian atas untuk melihat data gabungan atau salah satunya saja.",
+    a: "Setiap transaksi dicatat di bawah salah satu entitas: Pribadi atau Bisnis. Ini memudahkan memisahkan keuangan pribadi dan usaha dalam satu aplikasi. Penghasilan profesi (kategori Freelance) selalu masuk entitas Pribadi. Gunakan tombol Semua / Pribadi / Bisnis di bagian atas untuk melihat data gabungan atau salah satunya saja.",
   },
   {
     q: "Di mana data saya disimpan? Apakah aman?",
