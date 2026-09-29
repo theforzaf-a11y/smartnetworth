@@ -142,10 +142,11 @@ function AppShell() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon-sm" onClick={() => setHelpOpen(true)}>
-              <HelpCircle className="size-4" />
-            </Button>
-            <Button
+           <Button variant="ghost" size="icon-sm" 
+                   onClick={() => setHelpOpen(true)}>
+            <HelpCircle className="size-4" />
+          </Button>
+          <Button
               variant="ghost"
               size="icon-sm"
               aria-label="Hapus semua data"
@@ -243,6 +244,11 @@ function AppShell() {
                 ? finance.saldoAwal.pribadi + finance.saldoAwal.bisnis
                 : finance.saldoAwal[entityFilter]
             }
+            saldoAwalAset={
+              entityFilter === "semua"
+                ? finance.saldoAwalAset.pribadi + finance.saldoAwalAset.bisnis
+                : finance.saldoAwalAset[entityFilter]
+            }
             saldoAwalHutang={
               entityFilter === "semua"
                 ? finance.saldoAwalHutang.pribadi + finance.saldoAwalHutang.bisnis
@@ -280,6 +286,13 @@ function AppShell() {
             }
             saldoAwalByEntity={finance.saldoAwal}
             onSaveSaldo={finance.setSaldoAwal}
+            saldoAwalAset={
+              entityFilter === "semua"
+                ? finance.saldoAwalAset.pribadi + finance.saldoAwalAset.bisnis
+                : finance.saldoAwalAset[entityFilter]
+            }
+            saldoAwalAsetByEntity={finance.saldoAwalAset}
+            onSaveSaldoAset={finance.setSaldoAwalAset}
             defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
         ) : tab === "hutang" ? (
