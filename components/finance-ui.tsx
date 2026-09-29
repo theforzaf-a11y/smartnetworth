@@ -53,16 +53,16 @@ export function StatCard({
     indigo: "text-indigo-600 dark:text-indigo-400",
   }
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">{label}</span>
-        <span className={cn("flex size-8 items-center justify-center rounded-lg", accents[accent])}>
+    <div className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-xs font-medium text-muted-foreground">{label}</span>
+        <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", accents[accent])}>
           {icon}
         </span>
       </div>
       <p
         className={cn(
-          "mt-2 text-xl font-bold tracking-tight sm:text-2xl",
+          "mt-2 break-words text-lg font-bold leading-tight tracking-tight sm:text-2xl",
           colorValue ? valueColors[accent] : "text-foreground",
         )}
       >
