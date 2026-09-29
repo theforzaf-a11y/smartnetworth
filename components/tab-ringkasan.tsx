@@ -176,7 +176,7 @@ export function TabRingkasan({
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr_auto_1.15fr] lg:items-stretch">
           <StatCard label="Sisa Uang (Kas)" value={formatRp(stats.sisa)} icon={<Wallet className="size-4" />} accent="blue" colorValue />
           <EquationSign symbol="+" />
-          <StatCard label="Harta Non-Kas" value={formatRp(stats.hartaNonKas)} icon={<Coins className="size-4" />} accent="violet" colorValue />
+          <StatCard label="Harta Non-Kas" value={formatRp(stats.hartaNonKas)} icon={<Coins className="size-4" />} accent="indigo" colorValue />
           <EquationSign symbol="+" />
           <StatCard label="Total Piutang" value={formatRp(stats.piutang)} icon={<HandCoins className="size-4" />} accent="sky" colorValue />
           <EquationSign symbol="−" />
@@ -232,7 +232,7 @@ export function TabRingkasan({
             label="Transfer / Investasi ke Harta"
             value={formatRp(stats.transfers)}
             icon={<Coins className="size-4" />}
-            accent="violet"
+            accent="indigo"
             colorValue
             subtitle="Beli emas, deposito, dll."
           />
