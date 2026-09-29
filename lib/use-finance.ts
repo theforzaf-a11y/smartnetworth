@@ -67,6 +67,7 @@ export function useFinance() {
   const [saldoAwalProfesi, setSaldoAwalProfesiState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [saldoAwalBuktiPotong, setSaldoAwalBuktiPotongState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [buktiPotongBerjalan, setBuktiPotongBerjalanState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
+  const [saldoAwalAset, setSaldoAwalAsetState] = useState<SaldoAwalByEntity>(EMPTY_SALDO)
   const [liabilities, setLiabilities] = useState<Liability[]>([])
   const [receivables, setReceivables] = useState<Receivable[]>([])
   const [hydrated, setHydrated] = useState(false)
@@ -82,7 +83,7 @@ export function useFinance() {
         supabase
           .from("profiles")
           .select(
-            "saldo_awal_pribadi, saldo_awal_bisnis, saldo_awal_hutang_pribadi, saldo_awal_hutang_bisnis, saldo_awal_piutang_pribadi, saldo_awal_piutang_bisnis, saldo_awal_omset_pribadi, saldo_awal_omset_bisnis, saldo_awal_pengeluaran_pribadi, saldo_awal_pengeluaran_bisnis, saldo_awal_profesi_pribadi, saldo_awal_profesi_bisnis, saldo_awal_bukti_potong_pribadi, saldo_awal_bukti_potong_bisnis, bukti_potong_berjalan_pribadi, bukti_potong_berjalan_bisnis",
+            "saldo_awal_pribadi, saldo_awal_bisnis, saldo_awal_hutang_pribadi, saldo_awal_hutang_bisnis, saldo_awal_piutang_pribadi, saldo_awal_piutang_bisnis, saldo_awal_omset_pribadi, saldo_awal_omset_bisnis, saldo_awal_pengeluaran_pribadi, saldo_awal_pengeluaran_bisnis, saldo_awal_profesi_pribadi, saldo_awal_profesi_bisnis, saldo_awal_bukti_potong_pribadi, saldo_awal_bukti_potong_bisnis, bukti_potong_berjalan_pribadi, bukti_potong_berjalan_bisnis, saldo_awal_aset_pribadi, saldo_awal_aset_bisnis",
           )
           .eq("id", uid)
           .maybeSingle(),
@@ -124,6 +125,10 @@ export function useFinance() {
           pribadi: Number(profileRes.data.bukti_potong_berjalan_pribadi ?? 0),
           bisnis: Number(profileRes.data.bukti_potong_berjalan_bisnis ?? 0),
         })
+        setSaldoAwalAsetState({
+          pribadi: Number(profileRes.data.saldo_awal_aset_pribadi ?? 0),
+          bisnis: Number(profileRes.data.saldo_awal_aset_bisnis ?? 0),
+        })
       }
       setHydrated(true)
     }
@@ -155,6 +160,7 @@ export function useFinance() {
         setSaldoAwalProfesiState(EMPTY_SALDO)
         setSaldoAwalBuktiPotongState(EMPTY_SALDO)
         setBuktiPotongBerjalanState(EMPTY_SALDO)
+        setSaldoAwalAsetState(EMPTY_SALDO)
         setHydrated(true)
       }
     })
@@ -282,6 +288,17 @@ export function useFinance() {
       setBuktiPotongBerjalanState((prev) => ({ ...prev, [entity]: value }))
       if (userId) {
         const column = entity === "bisnis" ? "bukti_potong_berjalan_bisnis" : "bukti_potong_berjalan_pribadi"
+        supabase.from("profiles").update({ [column]: value }).eq("id", userId).then()
+      }
+    },
+    [userId],
+  )
+
+  const setSaldoAwalAset = useCallback(
+    (entity: Entity, value: number) => {
+      setSaldoAwalAsetState((prev) => ({ ...prev, [entity]: value }))
+      if (userId) {
+        const column = entity === "bisnis" ? "saldo_awal_aset_bisnis" : "saldo_awal_aset_pribadi"
         supabase.from("profiles").update({ [column]: value }).eq("id", userId).then()
       }
     },
@@ -519,6 +536,8 @@ export function useFinance() {
     setSaldoAwalBuktiPotong("bisnis", 0)
     setBuktiPotongBerjalan("pribadi", 0)
     setBuktiPotongBerjalan("bisnis", 0)
+    setSaldoAwalAset("pribadi", 0)
+    setSaldoAwalAset("bisnis", 0)
     if (userId) {
       supabase.from("transactions").delete().eq("user_id", userId).then()
       supabase.from("liabilities").delete().eq("user_id", userId).then()
@@ -534,6 +553,7 @@ export function useFinance() {
     setSaldoAwalProfesi,
     setSaldoAwalBuktiPotong,
     setBuktiPotongBerjalan,
+    setSaldoAwalAset,
   ])
 
   return {
@@ -547,6 +567,7 @@ export function useFinance() {
     saldoAwalProfesi,
     saldoAwalBuktiPotong,
     buktiPotongBerjalan,
+    saldoAwalAset,
     liabilities,
     receivables,
     addTransaction,
@@ -559,6 +580,7 @@ export function useFinance() {
     setSaldoAwalProfesi,
     setSaldoAwalBuktiPotong,
     setBuktiPotongBerjalan,
+    setSaldoAwalAset,
     addLiability,
     deleteLiability,
     payLiability,
