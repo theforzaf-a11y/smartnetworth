@@ -9,6 +9,7 @@ import {
   RotateCcw,
   KeyRound,
   Lock,
+  Unlock,
   Scale,
   HandCoins,
   HelpCircle,
@@ -108,6 +109,31 @@ function AppShell() {
   const finance = useFinance()
   const access = useAccess()
 
+  // Membungkus fungsi ubah-data: hanya jalan bila Mode Edit aktif di device ini.
+  function requireEdit<A extends any[]>(fn: (...args: A) => void): (...args: A) => void {
+    return (...args: A) => {
+      if (!access.canEdit) {
+        alert(
+          "Anda dalam Mode Lihat Saja. Tap ikon gembok di pojok kanan atas header untuk mengaktifkan Mode Edit (perlu PIN Edit dari pemilik aplikasi).",
+        )
+        return
+      }
+      fn(...args)
+    }
+  }
+
+  function handleToggleEditMode() {
+    if (access.canEdit) {
+      access.lockEdit()
+      return
+    }
+    const pin = prompt("Masukkan PIN Edit untuk mengaktifkan Mode Edit:")
+    if (pin === null) return
+    if (!access.unlockEdit(pin)) {
+      alert("PIN Edit salah.")
+    }
+  }
+
   // Wait until access state is read from localStorage to avoid a lock-screen flash.
   if (!access.hydrated) {
     return (
@@ -149,9 +175,28 @@ function AppShell() {
           <Button
               variant="ghost"
               size="icon-sm"
+              aria-label={access.canEdit ? "Mode Edit aktif — tap untuk kunci" : "Mode Lihat Saja — tap untuk edit"}
+              title={access.canEdit ? "Mode Edit aktif — tap untuk kunci" : "Mode Lihat Saja — tap untuk edit"}
+              onClick={handleToggleEditMode}
+            >
+              {access.canEdit ? (
+                <Unlock className="size-4 text-emerald-600" />
+              ) : (
+                <Lock className="size-4 text-amber-600" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               aria-label="Hapus semua data"
               title="Hapus semua data"
               onClick={() => {
+                if (!access.canEdit) {
+                  alert(
+                    "Anda dalam Mode Lihat Saja. Tap ikon gembok di pojok kanan atas header untuk mengaktifkan Mode Edit.",
+                  )
+                  return
+                }
                 if (
                   confirm(
                     "Hapus SEMUA data transaksi, harta, hutang, dan piutang Anda secara permanen? Tindakan ini tidak bisa dibatalkan.",
@@ -195,6 +240,11 @@ function AppShell() {
         {/* Global entity filter — scopes every summary, chart & list below */}
         <div className="mx-auto max-w-3xl px-4 pb-2.5">
           <EntityFilterToggle value={entityFilter} onChange={setEntityFilter} />
+          {!access.canEdit ? (
+            <p className="mt-1.5 text-center text-[11px] font-medium text-amber-600">
+              Mode Lihat Saja aktif — data tidak bisa diubah. Tap ikon gembok untuk Mode Edit.
+            </p>
+          ) : null}
           {tab === "pajak" ? (
             <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
               Tab Pajak UMKM selalu menghitung data{" "}
@@ -261,7 +311,7 @@ function AppShell() {
             }
             liabilities={filterLiabByEntity(finance.liabilities, entityFilter)}
             receivables={filterRecvByEntity(finance.receivables, entityFilter)}
-            onDelete={finance.deleteTransaction}
+            onDelete={requireEdit(finance.deleteTransaction)}
             onPayNow={(id) => {
               setPrefillDebtId(id)
               setTab("catat")
@@ -269,10 +319,10 @@ function AppShell() {
           />
         ) : tab === "catat" ? (
           <TabCatat
-            onAdd={finance.addTransaction}
+            onAdd={requireEdit(finance.addTransaction)}
             liabilities={finance.liabilities}
-            onPay={finance.payLiability}
-            onAddCredit={finance.addCreditExpense}
+            onPay={requireEdit(finance.payLiability)}
+            onAddCredit={requireEdit(finance.addCreditExpense)}
             prefillDebtId={prefillDebtId}
             defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
@@ -285,14 +335,14 @@ function AppShell() {
                 : finance.saldoAwal[entityFilter]
             }
             saldoAwalByEntity={finance.saldoAwal}
-            onSaveSaldo={finance.setSaldoAwal}
+            onSaveSaldo={requireEdit(finance.setSaldoAwal)}
             saldoAwalAset={
               entityFilter === "semua"
                 ? finance.saldoAwalAset.pribadi + finance.saldoAwalAset.bisnis
                 : finance.saldoAwalAset[entityFilter]
             }
             saldoAwalAsetByEntity={finance.saldoAwalAset}
-            onSaveSaldoAset={finance.setSaldoAwalAset}
+            onSaveSaldoAset={requireEdit(finance.setSaldoAwalAset)}
             defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
         ) : tab === "hutang" ? (
@@ -304,11 +354,11 @@ function AppShell() {
                 : finance.saldoAwalHutang[entityFilter]
             }
             saldoAwalHutangByEntity={finance.saldoAwalHutang}
-            onSaveSaldo={finance.setSaldoAwalHutang}
+            onSaveSaldo={requireEdit(finance.setSaldoAwalHutang)}
             liabilities={filterLiabByEntity(finance.liabilities, entityFilter)}
-            onAdd={finance.addLiability}
-            onDelete={finance.deleteLiability}
-            onPay={finance.payLiability}
+            onAdd={requireEdit(finance.addLiability)}
+            onDelete={requireEdit(finance.deleteLiability)}
+            onPay={requireEdit(finance.payLiability)}
             defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
         ) : tab === "piutang" ? (
@@ -320,10 +370,10 @@ function AppShell() {
                 : finance.saldoAwalPiutang[entityFilter]
             }
             saldoAwalPiutangByEntity={finance.saldoAwalPiutang}
-            onSaveSaldo={finance.setSaldoAwalPiutang}
-            onAdd={finance.addReceivable}
-            onDelete={finance.deleteReceivable}
-            onMarkPaid={finance.markReceivablePaid}
+            onSaveSaldo={requireEdit(finance.setSaldoAwalPiutang)}
+            onAdd={requireEdit(finance.addReceivable)}
+            onDelete={requireEdit(finance.deleteReceivable)}
+            onMarkPaid={requireEdit(finance.markReceivablePaid)}
             defaultEntity={entityFilter === "semua" ? "pribadi" : entityFilter}
           />
         ) : tab === "pajak" ? (
@@ -331,17 +381,17 @@ function AppShell() {
             transactions={filterTxByEntity(finance.transactions, "bisnis")}
             receivables={finance.receivables.filter((r) => r.entity === "bisnis")}
             saldoAwalOmset={finance.saldoAwalOmset.bisnis}
-            onSaveSaldoOmset={(value) => finance.setSaldoAwalOmset("bisnis", value)}
+            onSaveSaldoOmset={requireEdit((value: number) => finance.setSaldoAwalOmset("bisnis", value))}
           />
         ) : tab === "profesi" ? (
           <TabPajakProfesi
             transactions={filterTxByEntity(finance.transactions, "pribadi")}
             saldoAwalProfesi={finance.saldoAwalProfesi.pribadi}
-            onSaveSaldoProfesi={(value) => finance.setSaldoAwalProfesi("pribadi", value)}
+            onSaveSaldoProfesi={requireEdit((value: number) => finance.setSaldoAwalProfesi("pribadi", value))}
             saldoAwalBuktiPotong={finance.saldoAwalBuktiPotong.pribadi}
-            onSaveSaldoBuktiPotong={(value) => finance.setSaldoAwalBuktiPotong("pribadi", value)}
+            onSaveSaldoBuktiPotong={requireEdit((value: number) => finance.setSaldoAwalBuktiPotong("pribadi", value))}
             buktiPotongBerjalan={finance.buktiPotongBerjalan.pribadi}
-            onSaveBuktiPotongBerjalan={(value) => finance.setBuktiPotongBerjalan("pribadi", value)}
+            onSaveBuktiPotongBerjalan={requireEdit((value: number) => finance.setBuktiPotongBerjalan("pribadi", value))}
           />
         ) : (
           <TabLabaRugi
@@ -349,7 +399,7 @@ function AppShell() {
             receivables={finance.receivables}
             saldoAwalOmset={finance.saldoAwalOmset.bisnis}
             saldoAwalPengeluaran={finance.saldoAwalPengeluaran.bisnis}
-            onSaveSaldoPengeluaran={(value) => finance.setSaldoAwalPengeluaran("bisnis", value)}
+            onSaveSaldoPengeluaran={requireEdit((value: number) => finance.setSaldoAwalPengeluaran("bisnis", value))}
           />
         )}
       </div>
