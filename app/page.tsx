@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Users,
   Briefcase,
+  UserCog,
 } from "lucide-react"
 import { FoxLogo } from "@/components/fox-logo"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ import { TabPajakProfesi } from "@/components/tab-pajak-profesi"
 import { PasswordGate } from "@/components/password-gate"
 import { TrialExpired } from "@/components/trial-expired"
 import { AdminSettings } from "@/components/admin-settings"
+import { AccountSettings } from "@/components/account-settings"
 import { AdminCustomers } from "@/components/admin-customers"
 import { HelpGuide } from "@/components/help-guide"
 import { EntityFilterToggle } from "@/components/entity-toggle"
@@ -102,6 +104,7 @@ function AppShell() {
   const [tab, setTab] = useState<Tab>("ringkasan")
   const [prefillDebtId, setPrefillDebtId] = useState<string | null>(null)
   const [adminOpen, setAdminOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const [customersOpen, setCustomersOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [entityFilter, setEntityFilter] = useState<EntityFilter>("semua")
@@ -215,6 +218,15 @@ function AppShell() {
               onClick={() => setCustomersOpen(true)}
             >
               <Users className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Pengaturan Akun Saya"
+              title="Pengaturan Akun Saya"
+              onClick={() => setAccountOpen(true)}
+            >
+              <UserCog className="size-4" />
             </Button>
             <Button
               variant="ghost"
@@ -405,6 +417,7 @@ function AppShell() {
       </div>
 
       {adminOpen ? <AdminSettings onClose={() => setAdminOpen(false)} /> : null}
+      {accountOpen ? <AccountSettings onClose={() => setAccountOpen(false)} /> : null}
       {customersOpen ? <AdminCustomers onClose={() => setCustomersOpen(false)} /> : null}
       {helpOpen ? <HelpGuide onClose={() => setHelpOpen(false)} /> : null}
     </main>
