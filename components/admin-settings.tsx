@@ -1,10 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, ShieldCheck, KeyRound, Gauge, Mic, CheckCircle2, Lock } from "lucide-react"
+import { X, ShieldCheck, Gauge, Mic, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAccess } from "@/lib/access-context"
-import { supabase } from "@/lib/supabase"
 
 interface AdminSettingsProps {
   onClose: () => void
@@ -24,21 +23,14 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     maxVoiceQuota,
     setVoiceQuota,
     resetVoiceQuota,
-    editPin,
-    setEditPin,
   } = useAccess()
 
   const [authed, setAuthed] = useState(false)
   const [master, setMaster] = useState("")
   const [masterError, setMasterError] = useState(false)
 
-  const [newPassword, setNewPassword] = useState("")
-  const [passwordSaving, setPasswordSaving] = useState(false)
-  const [passwordError, setPasswordError] = useState("")
   const [quotaInput, setQuotaInput] = useState(String(scanQuota))
   const [voiceQuotaInput, setVoiceQuotaInput] = useState(String(voiceQuota))
-  const [editPinInput, setEditPinInput] = useState(editPin)
-  const [editPinError, setEditPinError] = useState("")
   const [savedMsg, setSavedMsg] = useState("")
 
   useEffect(() => {
@@ -48,10 +40,6 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
   useEffect(() => {
     setVoiceQuotaInput(String(voiceQuota))
   }, [voiceQuota])
-
-  useEffect(() => {
-    setEditPinInput(editPin)
-  }, [editPin])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -77,24 +65,6 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     }
   }
 
-  async function handleSaveAccountPassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (newPassword.trim().length < 6) {
-      setPasswordError("Password minimal 6 karakter.")
-      return
-    }
-    setPasswordSaving(true)
-    setPasswordError("")
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    setPasswordSaving(false)
-    if (error) {
-      setPasswordError(error.message)
-      return
-    }
-    setNewPassword("")
-    flash("Password akun berhasil diperbarui.")
-  }
-
   function handleSaveQuota(e: React.FormEvent) {
     e.preventDefault()
     const n = Number(quotaInput)
@@ -109,18 +79,6 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     if (!Number.isFinite(n)) return
     setVoiceQuota(n)
     flash("Kuota suara berhasil disimpan.")
-  }
-
-  function handleSaveEditPin(e: React.FormEvent) {
-    e.preventDefault()
-    const pin = editPinInput.trim()
-    if (pin.length < 4) {
-      setEditPinError("PIN Edit minimal 4 karakter.")
-      return
-    }
-    setEditPinError("")
-    setEditPin(pin)
-    flash("PIN Edit berhasil disimpan.")
   }
 
   return (
@@ -170,80 +128,13 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
               aria-invalid={masterError}
               className={inputClass}
             />
-            {masterError ? (
-              <p className="text-xs text-destructive">Password admin salah.</p>
-            ) : null}
+            {masterError ? <p className="text-xs text-destructive">Password admin salah.</p> : null}
             <Button type="submit" size="lg" className="w-full">
               Verifikasi
             </Button>
           </form>
         ) : (
           <div className="space-y-6">
-            {/* Change account password */}
-            <form onSubmit={handleSaveAccountPassword} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <KeyRound className="size-4 text-indigo-600 dark:text-indigo-400" />
-                <h3 className="text-sm font-semibold">Ubah Password Akun</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Mengubah password login akun Anda yang sedang aktif saat ini.
-              </p>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value)
-                  if (passwordError) setPasswordError("")
-                }}
-                placeholder="Password baru (min. 6 karakter)"
-                aria-invalid={!!passwordError}
-                className={inputClass}
-              />
-              {passwordError ? (
-                <p className="text-xs text-destructive">{passwordError}</p>
-              ) : null}
-              <Button type="submit" variant="outline" className="w-full" disabled={passwordSaving}>
-                {passwordSaving ? "Menyimpan..." : "Simpan Password Akun"}
-              </Button>
-            </form>
-
-            <div className="h-px bg-border" />
-
-            {/* PIN Edit — Mode Edit */}
-            <form onSubmit={handleSaveEditPin} className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Lock className="size-4 text-rose-600 dark:text-rose-400" />
-                <h3 className="text-sm font-semibold">PIN Edit (Mode Edit)</h3>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Default semua device dalam <span className="font-medium text-foreground">Mode Lihat Saja</span>.
-                Siapa pun yang tahu PIN ini bisa mengaktifkan Mode Edit di device mereka lewat ikon
-                gembok di header untuk mencatat/mengubah data. Bagikan PIN ini hanya ke staf yang
-                bertanggung jawab menginput data.
-              </p>
-              <input
-                type="text"
-                autoComplete="off"
-                value={editPinInput}
-                onChange={(e) => {
-                  setEditPinInput(e.target.value)
-                  if (editPinError) setEditPinError("")
-                }}
-                placeholder="PIN Edit (min. 4 karakter)"
-                aria-invalid={!!editPinError}
-                className={inputClass}
-              />
-              {editPinError ? (
-                <p className="text-xs text-destructive">{editPinError}</p>
-              ) : null}
-              <Button type="submit" variant="outline" className="w-full">
-                Simpan PIN Edit
-              </Button>
-            </form>
-
-            <div className="h-px bg-border" />
-
             {/* Scan quota */}
             <form onSubmit={handleSaveQuota} className="space-y-2">
               <div className="flex items-center gap-2">
