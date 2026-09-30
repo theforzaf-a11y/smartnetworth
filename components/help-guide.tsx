@@ -109,8 +109,8 @@ const FAQ_ITEMS = [
     a: "Data disimpan aman di database cloud (Supabase), terikat ke akun login Anda — bukan ke satu device/browser saja. Karena itu, data yang sama bisa dibuka dari device manapun (HP, tablet, laptop) selama login dengan email & password yang sama. Untuk mengontrol siapa yang boleh mengubah data, gunakan fitur Mode Edit / Mode Lihat Saja (ikon gembok di header) — default semua device dalam Mode Lihat Saja, dan hanya yang tahu PIN Edit yang bisa mengaktifkan Mode Edit untuk mencatat/mengubah data. Hindari menekan tombol Reset (ikon putar ulang) kecuali memang ingin menghapus semua data secara permanen.",
   },
   {
-    q: "Bagaimana cara mengganti kode akses aplikasi?",
-    a: "Tekan ikon kunci (KeyRound) di pojok kanan atas, masukkan Master Admin Password, lalu isi kode akses baru pada bagian 'Ubah Kode Akses'.",
+    q: "Bagaimana cara mengganti password akun atau PIN Edit? Bagaimana kalau lupa PIN Edit?",
+    a: "Tekan ikon 'Pengaturan Akun Saya' (ikon orang-gerigi) di pojok kanan atas — bisa langsung dibuka tanpa password tambahan selama Anda sudah login. Di sana ada 'Ubah Password Akun' dan 'PIN Edit (Mode Edit)'. Lupa PIN Edit lama pun tidak masalah: form PIN Edit tidak meminta PIN lama, jadi cukup isi PIN baru dan simpan. Tombol berlabel 'Pengaturan Akses Admin' (ikon kunci-gerigi) terpisah dan hanya untuk pemilik aplikasi mengatur kuota Scan AI/Catat Suara.",
   },
   {
     q: "Kenapa transaksi Pemasukan sempat tersimpan sebagai Pengeluaran (atau sebaliknya) lewat Catat Suara?",
