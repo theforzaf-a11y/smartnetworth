@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { X, ShieldCheck, KeyRound, Gauge, Mic, CheckCircle2 } from "lucide-react"
+import { X, ShieldCheck, KeyRound, Gauge, Mic, CheckCircle2, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAccess } from "@/lib/access-context"
 import { supabase } from "@/lib/supabase"
@@ -24,6 +24,8 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     maxVoiceQuota,
     setVoiceQuota,
     resetVoiceQuota,
+    editPin,
+    setEditPin,
   } = useAccess()
 
   const [authed, setAuthed] = useState(false)
@@ -35,6 +37,8 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
   const [passwordError, setPasswordError] = useState("")
   const [quotaInput, setQuotaInput] = useState(String(scanQuota))
   const [voiceQuotaInput, setVoiceQuotaInput] = useState(String(voiceQuota))
+  const [editPinInput, setEditPinInput] = useState(editPin)
+  const [editPinError, setEditPinError] = useState("")
   const [savedMsg, setSavedMsg] = useState("")
 
   useEffect(() => {
@@ -44,6 +48,10 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
   useEffect(() => {
     setVoiceQuotaInput(String(voiceQuota))
   }, [voiceQuota])
+
+  useEffect(() => {
+    setEditPinInput(editPin)
+  }, [editPin])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -101,6 +109,18 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
     if (!Number.isFinite(n)) return
     setVoiceQuota(n)
     flash("Kuota suara berhasil disimpan.")
+  }
+
+  function handleSaveEditPin(e: React.FormEvent) {
+    e.preventDefault()
+    const pin = editPinInput.trim()
+    if (pin.length < 4) {
+      setEditPinError("PIN Edit minimal 4 karakter.")
+      return
+    }
+    setEditPinError("")
+    setEditPin(pin)
+    flash("PIN Edit berhasil disimpan.")
   }
 
   return (
@@ -185,6 +205,40 @@ export function AdminSettings({ onClose }: AdminSettingsProps) {
               ) : null}
               <Button type="submit" variant="outline" className="w-full" disabled={passwordSaving}>
                 {passwordSaving ? "Menyimpan..." : "Simpan Password Akun"}
+              </Button>
+            </form>
+
+            <div className="h-px bg-border" />
+
+            {/* PIN Edit — Mode Edit */}
+            <form onSubmit={handleSaveEditPin} className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Lock className="size-4 text-rose-600 dark:text-rose-400" />
+                <h3 className="text-sm font-semibold">PIN Edit (Mode Edit)</h3>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Default semua device dalam <span className="font-medium text-foreground">Mode Lihat Saja</span>.
+                Siapa pun yang tahu PIN ini bisa mengaktifkan Mode Edit di device mereka lewat ikon
+                gembok di header untuk mencatat/mengubah data. Bagikan PIN ini hanya ke staf yang
+                bertanggung jawab menginput data.
+              </p>
+              <input
+                type="text"
+                autoComplete="off"
+                value={editPinInput}
+                onChange={(e) => {
+                  setEditPinInput(e.target.value)
+                  if (editPinError) setEditPinError("")
+                }}
+                placeholder="PIN Edit (min. 4 karakter)"
+                aria-invalid={!!editPinError}
+                className={inputClass}
+              />
+              {editPinError ? (
+                <p className="text-xs text-destructive">{editPinError}</p>
+              ) : null}
+              <Button type="submit" variant="outline" className="w-full">
+                Simpan PIN Edit
               </Button>
             </form>
 
