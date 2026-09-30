@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Briefcase, Info, Wand2, Check } from "lucide-react"
+import { Briefcase, Info, Wand2, Check, Printer } from "lucide-react"
 import { Card, CardTitle } from "@/components/finance-ui"
+import { TaxPrintReport } from "@/components/tax-print-report"
 import {
   formatRp,
   MONTH_NAMES_ID,
@@ -146,8 +147,52 @@ export function TabPajakProfesi({
 
   const statusLabel = `${kawin ? "K" : "TK"}/${Math.min(tanggungan, MAX_TANGGUNGAN)}`
 
+  // Data untuk laporan cetak/PDF (lampiran laporan pajak)
+  const [taxpayerName, setTaxpayerName] = useState("")
+  const [taxpayerNpwp, setTaxpayerNpwp] = useState("")
+  const now = new Date()
+  const periodLabel = `${MONTH_NAMES_ID[now.getMonth()]} ${now.getFullYear()}`
+
   return (
-    <div className="space-y-5">
+    <>
+    <div className="space-y-5 print:hidden">
+      <Card>
+        <div className="mb-3 flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+            <Printer className="size-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-semibold">Cetak Laporan (PDF)</h3>
+            <p className="text-xs text-muted-foreground">Untuk lampiran laporan pajak profesi</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input
+            value={taxpayerName}
+            onChange={(e) => setTaxpayerName(e.target.value)}
+            placeholder="Nama Wajib Pajak (opsional)"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+          />
+          <input
+            value={taxpayerNpwp}
+            onChange={(e) => setTaxpayerNpwp(e.target.value)}
+            placeholder="NPWP (opsional)"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-slate-800 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-slate-900"
+        >
+          <Printer className="size-4" />
+          Cetak / Simpan sebagai PDF
+        </button>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Muncul jendela cetak dari browser — pilih <b>"Simpan sebagai PDF"</b> sebagai tujuan cetak.
+        </p>
+      </Card>
+
       <Card>
         <div className="mb-4 flex items-center gap-2">
           <span className="flex size-9 items-center justify-center rounded-lg bg-fuchsia-100 text-fuchsia-700">
@@ -508,6 +553,49 @@ export function TabPajakProfesi({
         </div>
       </Card>
     </div>
+
+    <TaxPrintReport
+      title="Laporan Pajak Profesi (NPPN)"
+      subtitle="Norma Penghitungan Penghasilan Neto — Pasal 17 UU PPh"
+      taxpayerName={taxpayerName}
+      taxpayerNpwp={taxpayerNpwp}
+      periodLabel={periodLabel}
+      rows={[
+        { label: "Akumulasi penghasilan s.d. bulan lalu", value: formatRp(prior) },
+        {
+          label: useAppIncome ? "Penghasilan netto profesi periode berjalan" : "Penghasilan netto periode berjalan",
+          value: `+ ${formatRp(current)}`,
+        },
+        { label: "Total penghasilan diterima setahun", value: formatRp(brutoDiterima), bold: true },
+        { label: "Akumulasi bukti potong PPh s.d. bulan lalu", value: formatRp(priorBP) },
+        { label: "Bukti potong PPh periode berjalan", value: `+ ${formatRp(currentBP)}` },
+        { label: "Total bukti potong PPh", value: formatRp(totalBP), bold: true },
+        { label: `Norma penghasilan neto (${pct}%)`, value: formatRp(netto), bold: true },
+        { label: "Penghasilan Tidak Kena Pajak (PTKP)", value: `- ${formatRp(ptkp)}` },
+        { label: "Penghasilan Kena Pajak (PKP)", value: formatRp(pkp), bold: true },
+        ...taxRows.map((r) => ({
+          label: `Tarif ${(r.rate * 100).toFixed(0)}% (${r.range})`,
+          value: formatRp(r.tax),
+        })),
+        { label: "PPh Terutang (Pasal 17)", value: formatRp(taxYear) },
+        { label: "Bukti potong (setahun)", value: `- ${formatRp(totalBP)}` },
+        {
+          label: lebihBayar ? "PPh Lebih Bayar (setahun)" : "PPh Terutang Setelah Bukti Potong (setahun)",
+          value: formatRp(Math.abs(selisih)),
+          bold: true,
+        },
+        { label: "Estimasi rata-rata per bulan", value: formatRp(taxMonthlyNet) },
+      ]}
+      lineItemsTitle="Rincian Penghasilan Profesi (Kategori Freelance)"
+      lineItems={profesiLines.map((t) => ({
+        label: t.title,
+        date: formatTaxDate(t.date),
+        amount: formatRp(t.amount),
+      }))}
+      totalLabel="Total Penghasilan Bruto Setahun (Termasuk Bukti Potong)"
+      totalValue={formatRp(bruto)}
+    />
+    </>
   )
 }
 
