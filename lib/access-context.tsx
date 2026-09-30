@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabase"
 const MASTER_ADMIN_PASSWORD = "ADMIN-SMART2026"
 const DEFAULT_MAX_SCAN_QUOTA = 5
 const DEFAULT_MAX_VOICE_QUOTA = 3
+const DEFAULT_EDIT_PIN = "EDIT1234"
+const EDIT_UNLOCK_STORAGE_KEY = "sn_edit_unlocked"
 
 interface Profile {
   scan_quota: number
@@ -15,6 +17,7 @@ interface Profile {
   max_voice_quota: number
   trial_ends_at: string | null
   is_blocked: boolean
+  edit_pin: string | null
 }
 
 interface AccessContextValue {
@@ -36,6 +39,12 @@ interface AccessContextValue {
   resetScanQuota: () => void
   setVoiceQuota: (value: number) => void
   resetVoiceQuota: () => void
+  /** Mode Edit: default terkunci (Lihat Saja) di setiap device sampai PIN Edit dimasukkan. */
+  canEdit: boolean
+  editPin: string
+  unlockEdit: (pin: string) => boolean
+  lockEdit: () => void
+  setEditPin: (newPin: string) => void
 }
 
 const AccessContext = createContext<AccessContextValue | null>(null)
@@ -49,11 +58,24 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
   const [maxVoiceQuota, setMaxVoiceQuota] = useState(DEFAULT_MAX_VOICE_QUOTA)
   const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [editPin, setEditPinState] = useState(DEFAULT_EDIT_PIN)
+  const [canEdit, setCanEdit] = useState(false)
+
+  // Mode Edit tersimpan per-device (localStorage) — default selalu terkunci di device baru.
+  useEffect(() => {
+    try {
+      setCanEdit(window.localStorage.getItem(EDIT_UNLOCK_STORAGE_KEY) === "1")
+    } catch {
+      // localStorage tidak tersedia — biarkan default terkunci.
+    }
+  }, [])
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("scan_quota, max_scan_quota, voice_quota, max_voice_quota, trial_ends_at, is_blocked")
+      .select(
+        "scan_quota, max_scan_quota, voice_quota, max_voice_quota, trial_ends_at, is_blocked, edit_pin",
+      )
       .eq("id", userId)
       .maybeSingle<Profile>()
 
@@ -64,6 +86,7 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
       setMaxVoiceQuota(data.max_voice_quota)
       setTrialEndsAt(data.trial_ends_at)
       setIsBlocked(data.is_blocked)
+      setEditPinState(data.edit_pin ?? DEFAULT_EDIT_PIN)
     }
   }, [])
 
@@ -158,6 +181,39 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
     }
   }, [maxVoiceQuota, user])
 
+  const unlockEdit = useCallback(
+    (pin: string) => {
+      if (pin !== editPin) return false
+      setCanEdit(true)
+      try {
+        window.localStorage.setItem(EDIT_UNLOCK_STORAGE_KEY, "1")
+      } catch {
+        // abaikan bila localStorage tidak tersedia
+      }
+      return true
+    },
+    [editPin],
+  )
+
+  const lockEdit = useCallback(() => {
+    setCanEdit(false)
+    try {
+      window.localStorage.removeItem(EDIT_UNLOCK_STORAGE_KEY)
+    } catch {
+      // abaikan bila localStorage tidak tersedia
+    }
+  }, [])
+
+  const setEditPin = useCallback(
+    (newPin: string) => {
+      setEditPinState(newPin)
+      if (user) {
+        supabase.from("profiles").update({ edit_pin: newPin }).eq("id", user.id).then()
+      }
+    },
+    [user],
+  )
+
   const trialExpired =
     isBlocked || (trialEndsAt !== null && new Date(trialEndsAt).getTime() < Date.now())
 
@@ -182,6 +238,11 @@ export function AccessProvider({ children }: { children: React.ReactNode }) {
         resetScanQuota,
         setVoiceQuota,
         resetVoiceQuota,
+        canEdit,
+        editPin,
+        unlockEdit,
+        lockEdit,
+        setEditPin,
       }}
     >
       {children}
