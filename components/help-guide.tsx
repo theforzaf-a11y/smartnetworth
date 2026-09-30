@@ -106,7 +106,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Di mana data saya disimpan? Apakah aman?",
-    a: "Data disimpan di perangkat/browser yang Anda pakai. Karena itu, gunakan perangkat yang sama secara konsisten, dan hindari menekan tombol Reset (ikon putar ulang) kecuali memang ingin mengembalikan data ke contoh awal.",
+    a: "Data disimpan aman di database cloud (Supabase), terikat ke akun login Anda — bukan ke satu device/browser saja. Karena itu, data yang sama bisa dibuka dari device manapun (HP, tablet, laptop) selama login dengan email & password yang sama. Untuk mengontrol siapa yang boleh mengubah data, gunakan fitur Mode Edit / Mode Lihat Saja (ikon gembok di header) — default semua device dalam Mode Lihat Saja, dan hanya yang tahu PIN Edit yang bisa mengaktifkan Mode Edit untuk mencatat/mengubah data. Hindari menekan tombol Reset (ikon putar ulang) kecuali memang ingin menghapus semua data secara permanen.",
   },
   {
     q: "Bagaimana cara mengganti kode akses aplikasi?",
