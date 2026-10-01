@@ -394,6 +394,10 @@ function AppShell() {
             receivables={finance.receivables.filter((r) => r.entity === "bisnis")}
             saldoAwalOmset={finance.saldoAwalOmset.bisnis}
             onSaveSaldoOmset={requireEdit((value: number) => finance.setSaldoAwalOmset("bisnis", value))}
+            saldoAwalBuktiPotong={finance.saldoAwalBuktiPotong.bisnis}
+            onSaveSaldoBuktiPotong={requireEdit((value: number) => finance.setSaldoAwalBuktiPotong("bisnis", value))}
+            buktiPotongBerjalan={finance.buktiPotongBerjalan.bisnis}
+            onSaveBuktiPotongBerjalan={requireEdit((value: number) => finance.setBuktiPotongBerjalan("bisnis", value))}
           />
         ) : tab === "profesi" ? (
           <TabPajakProfesi
