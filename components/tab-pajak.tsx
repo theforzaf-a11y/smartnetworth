@@ -453,4 +453,111 @@ export function TabPajak({
         <div className="flex gap-2.5">
           <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="text-xs leading-relaxed text-muted-foreground">
-            <p className="mb-1 font-medium text-foreground">Tentang PP 55/2022 & PMK 37/2025
+            <p className="mb-1 font-medium text-foreground">Tentang PP 55/2022 & PMK 37/2025</p>
+            Wajib Pajak orang pribadi UMKM dengan peredaran bruto sampai Rp 4,8 miliar setahun
+            dikenai PPh Final 0,5%. Bagian omzet sampai Rp 500 juta pertama dalam satu tahun pajak
+            tidak dikenai pajak, sehingga akumulasi omset bulan-bulan sebelumnya ikut menentukan sisa
+            batas bebas pajak untuk periode berjalan. PMK 37/2025 menunjuk marketplace/platform
+            sebagai pemungut PPh Pasal 22 0,5% atas transaksi perdagangan elektronik (rencana efektif
+            1 November 2026); bagi pedagang UMKM, pungutan ini diperhitungkan sebagai pelunasan PPh
+            Final. Perhitungan ini adalah estimasi; konsultasikan dengan konsultan pajak untuk
+            kepastian.
+          </div>
+        </div>
+      </Card>
+    </div>
+
+    <TaxPrintReport
+      title="Laporan Pajak UMKM (PPh Final 0,5%)"
+      subtitle="PP 55/2022 sebagaimana diubah PP 20/2026 & PMK 37/2025"
+      taxpayerName={taxpayerName}
+      taxpayerNpwp={taxpayerNpwp}
+      periodLabel={periodLabel}
+      rows={[
+        { label: "Akumulasi omset s.d. bulan lalu", value: formatRp(prior) },
+        {
+          label: useAppIncome ? "Omset penjualan periode berjalan" : "Omset periode berjalan",
+          value: `+ ${formatRp(current)}`,
+        },
+        { label: "Batas bebas pajak (setahun)", value: formatRp(EXEMPTION) },
+        { label: "Sisa batas bebas pajak", value: formatRp(remainingExemption) },
+        { label: "Omzet kena pajak periode ini", value: formatRp(taxableCurrent), bold: true },
+        { label: "Tarif PPh Final", value: "0,5%" },
+        { label: "PPh Final terutang (periode ini)", value: formatRp(taxCurrent), bold: true },
+        { label: "Estimasi setoran per bulan", value: formatRp(monthly) },
+        { label: "Proyeksi PPh Final setahun", value: formatRp(taxYear) },
+        { label: "Akumulasi bukti potong PPh 22 s.d. bulan lalu", value: formatRp(priorBP) },
+        { label: "Bukti potong PPh 22 periode berjalan", value: `+ ${formatRp(currentBP)}` },
+        { label: "Total bukti potong PPh 22 (setahun)", value: formatRp(totalBP), bold: true },
+        { label: "PPh Final Terutang (setahun)", value: formatRp(taxYear) },
+        { label: "Bukti Potong PPh 22 (setahun)", value: `- ${formatRp(totalBP)}` },
+        {
+          label: lebihBayarBP ? "PPh Lebih Bayar (setahun)" : "PPh Kurang Bayar Setelah Bukti Potong (setahun)",
+          value: formatRp(Math.abs(selisihBP)),
+          bold: true,
+        },
+        { label: "Estimasi PPh rata-rata per bulan", value: formatRp(taxMonthlyAfterBP) },
+      ]}
+      lineItemsTitle="Rincian Penjualan & Piutang Bisnis"
+      lineItems={salesLines.map((l) => ({
+        label: l.label,
+        date: formatTaxDate(l.date),
+        amount: formatRp(l.amount),
+      }))}
+      totalLabel="Total Omset Setahun"
+      totalValue={formatRp(totalOmzet)}
+    />
+    </>
+  )
+}
+
+function MoneyInput({
+  id,
+  value,
+  onChange,
+  onBlurCommit,
+  placeholder,
+  disabled,
+}: {
+  id: string
+  value: string
+  onChange: (v: string) => void
+  onBlurCommit?: () => void
+  placeholder?: string
+  disabled?: boolean
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+        Rp
+      </span>
+      <input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min="0"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlurCommit}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
+      />
+    </div>
+  )
+}
+
+function formatTaxDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00")
+  if (Number.isNaN(d.getTime())) return iso
+  return `${d.getDate()} ${MONTH_NAMES_ID[d.getMonth()]?.slice(0, 3) ?? ""} ${d.getFullYear()}`
+}
+
+function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={bold ? "font-bold" : "font-medium"}>{value}</span>
+    </div>
+  )
+}
