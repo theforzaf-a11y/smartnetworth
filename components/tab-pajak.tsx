@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Receipt, Info, Wand2, Check, Printer } from "lucide-react"
+import { Receipt, Info, Wand2, Check, Printer, Store } from "lucide-react"
 import { Card, CardTitle } from "@/components/finance-ui"
 import { TaxPrintReport } from "@/components/tax-print-report"
 import {
@@ -32,6 +32,12 @@ interface TabPajakProps {
   /** Persisted "Akumulasi Omset s.d. Bulan Lalu" untuk entity bisnis. */
   saldoAwalOmset: number
   onSaveSaldoOmset: (value: number) => void
+  /** Persisted "Akumulasi Bukti Potong PPh 22 s.d. Bulan Lalu" (PMK 37/2025, input manual). */
+  saldoAwalBuktiPotong: number
+  onSaveSaldoBuktiPotong: (value: number) => void
+  /** Persisted "Bukti Potong PPh 22 Periode Berjalan" (PMK 37/2025, input manual). */
+  buktiPotongBerjalan: number
+  onSaveBuktiPotongBerjalan: (value: number) => void
 }
 
 export function TabPajak({
@@ -39,6 +45,10 @@ export function TabPajak({
   receivables = [],
   saldoAwalOmset,
   onSaveSaldoOmset,
+  saldoAwalBuktiPotong,
+  onSaveSaldoBuktiPotong,
+  buktiPotongBerjalan,
+  onSaveBuktiPotongBerjalan,
 }: TabPajakProps) {
   // Peredaran bruto UMKM = pemasukan kategori "Penjualan" + seluruh piutang bisnis
   // (dibukukan sebagai omset saat terjadi transaksi, baik lunas maupun belum).
@@ -82,9 +92,22 @@ export function TabPajak({
   // Toggle: gunakan omset penjualan aplikasi sebagai omset periode berjalan
   const [useAppIncome, setUseAppIncome] = useState(true)
 
+  // Akumulasi bukti potong PPh 22 s.d. bulan lalu (saldo awal) — tersimpan permanen di database
+  const [priorBPInput, setPriorBPInput] = useState(saldoAwalBuktiPotong ? String(saldoAwalBuktiPotong) : "")
+  // Bukti potong PPh 22 periode berjalan — input manual, tersimpan permanen
+  const [currentBPInput, setCurrentBPInput] = useState(buktiPotongBerjalan ? String(buktiPotongBerjalan) : "")
+
   useEffect(() => {
     setPriorOmzet(saldoAwalOmset ? String(saldoAwalOmset) : "")
   }, [saldoAwalOmset])
+
+  useEffect(() => {
+    setPriorBPInput(saldoAwalBuktiPotong ? String(saldoAwalBuktiPotong) : "")
+  }, [saldoAwalBuktiPotong])
+
+  useEffect(() => {
+    setCurrentBPInput(buktiPotongBerjalan ? String(buktiPotongBerjalan) : "")
+  }, [buktiPotongBerjalan])
 
   const prior = Number(priorOmzet) || 0
   const current = useAppIncome ? salesRevenue : Number(manualCurrent) || 0
@@ -101,6 +124,16 @@ export function TabPajak({
   const taxableYear = Math.max(0, totalOmzet - EXEMPTION)
   const taxYear = Math.round(taxableYear * RATE)
   const monthly = Math.round(taxCurrent / 12)
+
+  const priorBP = Number(priorBPInput) || 0
+  const currentBP = Number(currentBPInput) || 0
+  const totalBP = priorBP + currentBP
+
+  // PPh Final terutang setahun dikurangi bukti potong PPh 22 (PMK 37/2025):
+  // positif = masih kurang bayar, negatif = lebih bayar (bukti potong melebihi PPh terutang)
+  const selisihBP = taxYear - totalBP
+  const lebihBayarBP = selisihBP < 0
+  const taxMonthlyAfterBP = Math.round(Math.max(0, selisihBP) / 12)
 
   // Data untuk laporan cetak/PDF (lampiran laporan pajak)
   const [taxpayerName, setTaxpayerName] = useState("")
@@ -321,101 +354,103 @@ export function TabPajak({
         ) : null}
       </Card>
 
+      <Card>
+        <div className="mb-4 flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700">
+            <Store className="size-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-semibold">Bukti Potong PPh Pasal 22 (Marketplace)</h3>
+            <p className="text-xs text-muted-foreground">PMK 37/2025 — rencana berlaku efektif 1 November 2026</p>
+          </div>
+        </div>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Marketplace/platform perdagangan elektronik akan memungut PPh Pasal 22 sebesar 0,5% dari setiap
+          transaksi penjualan online untuk pedagang dengan akumulasi penghasilan di atas Rp 500 juta
+          setahun. Bagi pedagang yang dikenai PPh Final UMKM, pungutan ini merupakan bagian dari pelunasan
+          PPh Final — isi sesuai bukti potong yang diterima dari marketplace.
+        </p>
+
+        <div>
+          <label htmlFor="prior-bp-umkm" className="mb-1.5 block text-sm font-medium">
+            Akumulasi Bukti Potong PPh 22 s.d. Bulan Lalu
+            <span className="ml-1 font-normal text-muted-foreground">(Saldo Awal)</span>
+          </label>
+          <MoneyInput
+            id="prior-bp-umkm"
+            value={priorBPInput}
+            onChange={setPriorBPInput}
+            onBlurCommit={() => onSaveSaldoBuktiPotong(Number(priorBPInput) || 0)}
+            placeholder="0"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Total PPh Pasal 22 yang sudah dipotong marketplace (sesuai bukti potong) sejak awal tahun
+            pajak hingga bulan lalu. Isi bila Anda baru mulai memakai aplikasi di tengah tahun. Angka ini
+            tersimpan otomatis.
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="current-bp-umkm" className="mb-1.5 block text-sm font-medium">
+            Total Bukti Potong PPh 22 Periode Berjalan
+          </label>
+          <MoneyInput
+            id="current-bp-umkm"
+            value={currentBPInput}
+            onChange={setCurrentBPInput}
+            onBlurCommit={() => onSaveBuktiPotongBerjalan(Number(currentBPInput) || 0)}
+            placeholder="0"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Isi manual sesuai bukti potong dari marketplace/platform bulan ini (mis. Shopee, Tokopedia,
+            dll). Angka ini tersimpan otomatis.
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-2.5 border-t border-border pt-3">
+          <Row label="Akumulasi bukti potong PPh 22 s.d. bulan lalu" value={formatRp(priorBP)} />
+          <Row label="Bukti potong PPh 22 periode berjalan" value={`+ ${formatRp(currentBP)}`} />
+          <div className="border-t border-border pt-2.5">
+            <Row label="Total bukti potong PPh 22 (setahun)" value={formatRp(totalBP)} bold />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-2.5">
+          <Row label="PPh Final Terutang (setahun)" value={formatRp(taxYear)} />
+          <Row label="Bukti Potong PPh 22 (setahun)" value={`- ${formatRp(totalBP)}`} />
+        </div>
+
+        <div
+          className={`mt-3 rounded-xl border p-4 ${
+            lebihBayarBP ? "border-emerald-200 bg-emerald-50" : "border-pink-200 bg-pink-50"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">
+              {lebihBayarBP ? "PPh Lebih Bayar (setahun)" : "PPh Kurang Bayar (setahun)"}
+            </span>
+            <span className={`text-2xl font-bold ${lebihBayarBP ? "text-emerald-700" : "text-pink-700"}`}>
+              {formatRp(Math.abs(selisihBP))}
+            </span>
+          </div>
+          {!lebihBayarBP ? (
+            <div className="mt-2 flex items-center justify-between border-t border-pink-200/70 pt-2">
+              <span className="text-xs text-muted-foreground">Estimasi PPh rata-rata per bulan</span>
+              <span className="text-sm font-semibold">{formatRp(taxMonthlyAfterBP)}</span>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Bukti potong melebihi PPh Final terutang; kelebihan dapat dikompensasikan atau diminta
+              kembali (restitusi) melalui SPT Tahunan.
+            </p>
+          )}
+        </div>
+      </Card>
+
       <Card className="bg-muted/40">
         <div className="flex gap-2.5">
           <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div className="text-xs leading-relaxed text-muted-foreground">
-            <p className="mb-1 font-medium text-foreground">Tentang PP 55/2022 sebagaimana dengan perubahannya PP 20/2026</p>
-            Wajib Pajak orang pribadi UMKM dengan peredaran bruto sampai Rp 4,8 miliar setahun
-            dikenai PPh Final 0,5%. Bagian omzet sampai Rp 500 juta pertama dalam satu tahun pajak
-            tidak dikenai pajak, sehingga akumulasi omset bulan-bulan sebelumnya ikut menentukan sisa
-            batas bebas pajak untuk periode berjalan. Perhitungan ini adalah estimasi; konsultasikan
-            dengan konsultan pajak untuk kepastian.
-          </div>
-        </div>
-      </Card>
-    </div>
-
-    <TaxPrintReport
-      title="Laporan Pajak UMKM (PPh Final 0,5%)"
-      subtitle="PP 55/2022 sebagaimana diubah PP 20/2026"
-      taxpayerName={taxpayerName}
-      taxpayerNpwp={taxpayerNpwp}
-      periodLabel={periodLabel}
-      rows={[
-        { label: "Akumulasi omset s.d. bulan lalu", value: formatRp(prior) },
-        {
-          label: useAppIncome ? "Omset penjualan periode berjalan" : "Omset periode berjalan",
-          value: `+ ${formatRp(current)}`,
-        },
-        { label: "Batas bebas pajak (setahun)", value: formatRp(EXEMPTION) },
-        { label: "Sisa batas bebas pajak", value: formatRp(remainingExemption) },
-        { label: "Omzet kena pajak periode ini", value: formatRp(taxableCurrent), bold: true },
-        { label: "Tarif PPh Final", value: "0,5%" },
-        { label: "PPh Final terutang (periode ini)", value: formatRp(taxCurrent), bold: true },
-        { label: "Estimasi setoran per bulan", value: formatRp(monthly) },
-        { label: "Proyeksi PPh Final setahun", value: formatRp(taxYear) },
-      ]}
-      lineItemsTitle="Rincian Penjualan & Piutang Bisnis"
-      lineItems={salesLines.map((l) => ({
-        label: l.label,
-        date: formatTaxDate(l.date),
-        amount: formatRp(l.amount),
-      }))}
-      totalLabel="Total Omset Setahun"
-      totalValue={formatRp(totalOmzet)}
-    />
-    </>
-  )
-}
-
-function MoneyInput({
-  id,
-  value,
-  onChange,
-  onBlurCommit,
-  placeholder,
-  disabled,
-}: {
-  id: string
-  value: string
-  onChange: (v: string) => void
-  onBlurCommit?: () => void
-  placeholder?: string
-  disabled?: boolean
-}) {
-  return (
-    <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
-        Rp
-      </span>
-      <input
-        id={id}
-        type="number"
-        inputMode="numeric"
-        min="0"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlurCommit}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-3 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
-      />
-    </div>
-  )
-}
-
-function formatTaxDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00")
-  if (Number.isNaN(d.getTime())) return iso
-  return `${d.getDate()} ${MONTH_NAMES_ID[d.getMonth()]?.slice(0, 3) ?? ""} ${d.getFullYear()}`
-}
-
-function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={bold ? "font-bold" : "font-medium"}>{value}</span>
-    </div>
-  )
-}
+            <p className="mb-1 font-medium text-foreground">Tentang PP 55/2022 & PMK 37/2025
