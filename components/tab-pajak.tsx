@@ -365,7 +365,7 @@ export function TabPajak({
           </div>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
-          Marketplace/platform perdagangan elektronik akan memungut PPh Pasal 22 sebesar 0,5% dari setiap
+          Marketplace/platform perdagangan elektronik memungut PPh Pasal 22 sebesar 0,5% dari setiap
           transaksi penjualan online untuk pedagang dengan akumulasi penghasilan di atas Rp 500 juta
           setahun. Bagi pedagang yang dikenai PPh Final UMKM, pungutan ini merupakan bagian dari pelunasan
           PPh Final — isi sesuai bukti potong yang diterima dari marketplace.
@@ -458,8 +458,8 @@ export function TabPajak({
             dikenai PPh Final 0,5%. Bagian omzet sampai Rp 500 juta pertama dalam satu tahun pajak
             tidak dikenai pajak, sehingga akumulasi omset bulan-bulan sebelumnya ikut menentukan sisa
             batas bebas pajak untuk periode berjalan. PMK 37/2025 menunjuk marketplace/platform
-            sebagai pemungut PPh Pasal 22 0,5% atas transaksi perdagangan elektronik (rencana efektif
-            1 November 2026); bagi pedagang UMKM, pungutan ini diperhitungkan sebagai pelunasan PPh
+            sebagai pemungut PPh Pasal 22 0,5% atas transaksi perdagangan elektronik (efektif sejak
+            1 Oktober 2026); bagi pedagang UMKM, pungutan ini diperhitungkan sebagai pelunasan PPh
             Final. Perhitungan ini adalah estimasi; konsultasikan dengan konsultan pajak untuk
             kepastian.
           </div>
