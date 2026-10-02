@@ -170,8 +170,10 @@ export default function PasangPage() {
             <button
               type="button"
               onClick={() => setTab("android")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                tab === "android" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
+                tab === "android"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Smartphone className="size-4" /> Android
@@ -179,8 +181,10 @@ export default function PasangPage() {
             <button
               type="button"
               onClick={() => setTab("ios")}
-              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
-                tab === "ios" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-all ${
+                tab === "ios"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "bg-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Apple className="size-4" /> iPhone
@@ -225,7 +229,12 @@ export default function PasangPage() {
           </div>
 
           <div className="mt-4 flex items-center gap-2 rounded-xl border border-border bg-background p-2.5">
-            <code className="flex-1 truncate text-xs text-muted-foreground">{APP_LINK}</code>
+            <a
+              href={`https://${APP_LINK}`}
+              className="flex-1 truncate text-xs font-medium text-indigo-600 underline underline-offset-2"
+            >
+              {APP_LINK}
+            </a>
             <button
               type="button"
               onClick={handleCopy}
@@ -237,6 +246,9 @@ export default function PasangPage() {
               {copied ? "Tersalin" : "Salin"}
             </button>
           </div>
+          <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">
+            Tap tulisan link di atas untuk langsung buka halaman Daftar/Masuk SmartNetWorth.
+          </p>
         </div>
 
         <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
