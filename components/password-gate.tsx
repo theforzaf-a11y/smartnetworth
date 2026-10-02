@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Lock, Mail, Loader2 } from "lucide-react"
 import { FoxLogo } from "@/components/fox-logo"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 
@@ -200,6 +201,14 @@ export function PasswordGate() {
             </button>
           ) : null}
         </form>
+
+        <p className="mt-5 text-center text-[11px] text-muted-foreground">
+          Dengan masuk/daftar, Anda menyetujui{" "}
+          <Link href="/kebijakan-privasi" className="underline underline-offset-2 hover:text-foreground">
+            Kebijakan Privasi
+          </Link>{" "}
+          kami.
+        </p>
       </div>
     </div>
   )
