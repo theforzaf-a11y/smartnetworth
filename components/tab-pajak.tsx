@@ -361,7 +361,7 @@ export function TabPajak({
           </span>
           <div>
             <h3 className="text-base font-semibold">Bukti Potong PPh Pasal 22 (Marketplace)</h3>
-            <p className="text-xs text-muted-foreground">PMK 37/2025 — rencana berlaku efektif 1 November 2026</p>
+            <p className="text-xs text-muted-foreground">PMK 37/2025 — berlaku efektif 1 Oktober 2026</p>
           </div>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
